@@ -91,22 +91,57 @@ export default async function AdminPage() {
     .reduce((sum, payment) => sum + payment.amount_cents, 0);
 
   return (
-    <main className="app-shell">
+    <main
+      className="app-shell"
+      style={{
+        display: "block",
+        width: "100%",
+        minHeight: "100vh",
+        boxSizing: "border-box",
+      }}
+    >
       <section
         className="main-area"
-        style={{ maxWidth: 1150, margin: "0 auto", width: "100%" }}
+        style={{
+          width: "100%",
+          maxWidth: 1400,
+          minWidth: 0,
+          margin: "0 auto",
+          padding: "32px clamp(16px, 4vw, 48px)",
+          boxSizing: "border-box",
+        }}
       >
-        <header className="topbar">
+        <header
+          className="topbar"
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
           <div>
             <span className="eyebrow">FITMIND AI · CONTROLE</span>
             <h1>Painel administrativo</h1>
           </div>
+
           <Link className="secondary" href="/">
             Voltar ao app
           </Link>
         </header>
 
-        <div className="stats-grid">
+        <div
+          className="stats-grid"
+          style={{
+            width: "100%",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 16,
+            marginTop: 28,
+          }}
+        >
           <article className="stat-card">
             <span>Usuários listados</span>
             <strong>{userRows.length}</strong>
@@ -126,24 +161,33 @@ export default async function AdminPage() {
           </article>
         </div>
 
-        <article className="surface full-panel">
+        <article
+          className="surface full-panel"
+          style={{ width: "100%", marginTop: 24, boxSizing: "border-box" }}
+        >
           <span className="eyebrow">GESTÃO DE USUÁRIOS</span>
           <h2>Contas cadastradas</h2>
 
           {userRows.map((u) => (
             <div className="exercise-row" key={u.id}>
-              <div>
+              <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                 <strong>{u.full_name || "Sem nome cadastrado"}</strong>
                 <small>
-                  {u.id} · {new Date(u.created_at).toLocaleDateString("pt-BR")}
+                  {u.id} ·{" "}
+                  {new Date(u.created_at).toLocaleDateString("pt-BR")}
                 </small>
               </div>
-              <span className="pill">{u.account_status ?? "Sem status"}</span>
+              <span className="pill">
+                {u.account_status ?? "Sem status"}
+              </span>
             </div>
           ))}
         </article>
 
-        <article className="surface full-panel">
+        <article
+          className="surface full-panel"
+          style={{ width: "100%", marginTop: 24, boxSizing: "border-box" }}
+        >
           <span className="eyebrow">PLANOS E PREÇOS</span>
           <h2>Configuração comercial</h2>
           <p className="muted">
@@ -168,7 +212,10 @@ export default async function AdminPage() {
           ))}
         </article>
 
-        <article className="surface full-panel">
+        <article
+          className="surface full-panel"
+          style={{ width: "100%", marginTop: 24, boxSizing: "border-box" }}
+        >
           <span className="eyebrow">FINANCEIRO</span>
           <h2>Transações recentes</h2>
 
