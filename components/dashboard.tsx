@@ -12,19 +12,36 @@ const starter:Exercise[]=[
  {name:"Tríceps francês",sets:3,reps:"10–12"}
 ];
 export default function Dashboard(){
- const [tab,setTab]=useState("Início"); const [user,setUser]=useState<string|null>(null);
+ const [tab,setTab]=useState("Início"); const [user,setUser]=useState<string|null>(null); const [isAdmin,setIsAdmin]=useState(false);
  const [exercises,setExercises]=useState(starter); const [completed,setCompleted]=useState<Record<string,boolean>>({});
  const [sessions,setSessions]=useState(0); const [showProfile,setShowProfile]=useState(false);
  const [weight,setWeight]=useState(""); const [goal,setGoal]=useState("Ganhar massa muscular");
  const [saving,setSaving]=useState(false); const [notice,setNotice]=useState("");
  const done=Object.values(completed).filter(Boolean).length;
  const total=useMemo(()=>exercises.reduce((n,e)=>n+e.sets,0),[exercises]);
- useEffect(()=>{let active=true;try{const supabase=createClient();supabase.auth.getUser().then(({data})=>{if(active)setUser(data.user?.email??null)}).catch(()=>{});}catch{}return()=>{active=false}},[]);
- async function logout(){try{const supabase=createClient();await supabase.auth.signOut();}catch{}setUser(null);setNotice("Sessão encerrada.");}
+ useEffect(()=>{
+  let active=true;
+  const load=async()=>{
+   try{
+    const supabase=createClient();
+    const {data:{user:authUser},error:authError}=await supabase.auth.getUser();
+    if(authError) throw authError;
+    if(!authUser){window.location.href="/login";return;}
+    if(active)setUser(authUser.email??null);
+    const {data:role}=await supabase.from("user_roles").select("role").eq("user_id",authUser.id).maybeSingle();
+    if(active)setIsAdmin(role?.role==="admin");
+    const {data:profile}=await supabase.from("profiles").select("weight_kg, goal").eq("id",authUser.id).maybeSingle();
+    if(active&&profile){setWeight(profile.weight_kg==null?"":String(profile.weight_kg));if(profile.goal)setGoal(profile.goal);}
+   }catch(err){if(active)setNotice(err instanceof Error?err.message:"Não foi possível carregar sua conta.");}
+  };
+  void load();
+  return()=>{active=false};
+ },[]);
+ async function logout(){try{const supabase=createClient();await supabase.auth.signOut();}finally{window.location.href="/login";}}
  async function saveProfile(e:React.FormEvent){e.preventDefault();setSaving(true);setNotice("");try{const supabase=createClient();const {data}=await supabase.auth.getUser();if(!data.user)throw new Error("Entre na sua conta para salvar o perfil.");const {error}=await supabase.from("profiles").upsert({id:data.user.id,weight_kg:weight?Number(weight):null,goal});if(error)throw error;setNotice("Perfil salvo com sucesso.");setShowProfile(false);}catch(err){setNotice(err instanceof Error?err.message:"Não foi possível salvar.");}finally{setSaving(false);}}
  function finish(){if(done<total){setNotice("Conclua todas as séries para finalizar.");return;}setSessions(v=>v+1);setNotice("Treino concluído! Excelente trabalho.");}
  return <main className="app-shell">
-  <aside className="sidebar"><a className="brand" href="/">FITMIND <span>AI.</span></a><p className="tagline">SUA EVOLUÇÃO COMEÇA NA MENTE.</p><div className="side-label">MENU</div>{["Início","Treinos","Evolução"].map((item,i)=><button key={item} className={`side-link ${tab===item?"selected":""}`} onClick={()=>setTab(item)}>{i===0?<Activity size={18}/>:i===1?<Dumbbell size={18}/>:<TrendingUp size={18}/>} {item}</button>)}<div className="side-bottom"><div className="avatar">FM</div><div className="user-info"><strong>{user??"Visitante"}</strong><span>{user?"Conta conectada":"Modo demonstração"}</span></div>{user?<button className="icon-btn" title="Sair" onClick={logout}><LogOut size={17}/></button>:<a className="icon-btn" title="Entrar" href="/login"><LogIn size={17}/></a>}</div></aside>
+  <aside className="sidebar"><a className="brand" href="/">FITMIND <span>AI.</span></a><p className="tagline">SUA EVOLUÇÃO COMEÇA NA MENTE.</p><div className="side-label">MENU</div>{["Início","Treinos","Evolução"].map((item,i)=><button key={item} className={`side-link ${tab===item?"selected":""}`} onClick={()=>setTab(item)}>{i===0?<Activity size={18}/>:i===1?<Dumbbell size={18}/>:<TrendingUp size={18}/>} {item}</button>)}<a className="side-link" href="/financeiro"><span>R$</span> Financeiro</a>{isAdmin&&<a className="side-link" href="/admin"><span>⚙</span> Administração</a>}<div className="side-bottom"><div className="avatar">FM</div><div className="user-info"><strong>{user??"Visitante"}</strong><span>{user?"Conta conectada":"Modo demonstração"}</span></div>{user?<button className="icon-btn" title="Sair" onClick={logout}><LogOut size={17}/></button>:<a className="icon-btn" title="Entrar" href="/login"><LogIn size={17}/></a>}</div></aside>
   <section className="main-area"><header className="topbar"><div><span className="eyebrow">QUARTA-FEIRA · SUA JORNADA</span><h1>{tab==="Início"?"Olá. Vamos evoluir?":tab==="Treinos"?"Seus treinos":"Acompanhe sua evolução"}</h1></div><button className="profile-btn" onClick={()=>setShowProfile(true)}><UserRound size={17}/> Meu perfil</button></header>
   {notice&&<div className="notice"><span>{notice}</span><button className="icon-btn" onClick={()=>setNotice("")}><X size={15}/></button></div>}
   {tab==="Início"&&<><section className="hero-card"><div className="hero-copy"><span className="pill"><Sparkles size={13}/> SEU PERSONAL INTELIGENTE</span><h2>Consistência hoje.<br/><em>Resultado amanhã.</em></h2><p>Seu espaço para treinar com intenção e acompanhar cada conquista.</p><button className="primary" onClick={()=>setTab("Treinos")}>Ver treino de hoje <ArrowUpRight size={17}/></button></div><div className="hero-art"><div className="orb"><Brain size={70} strokeWidth={1.15}/></div><span className="orbit orbit-one"/><span className="orbit orbit-two"/></div></section>

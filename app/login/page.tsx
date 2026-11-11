@@ -7,7 +7,7 @@ export default function Login() {
   const [busy,setBusy]=useState(false); const [message,setMessage]=useState("");
   async function submit(e:React.FormEvent) {
     e.preventDefault(); setBusy(true); setMessage("");
-    try { const supabase=createClient(); const {error}=await supabase.auth.signInWithPassword({email,password}); if(error) throw error; window.location.href="/"; }
+    try { const supabase=createClient(); const {error}=await supabase.auth.signInWithPassword({email,password}); if(error) throw error; window.location.assign("/"); }
     catch(err) { setMessage(err instanceof Error ? err.message : "Não foi possível entrar."); }
     finally { setBusy(false); }
   }
