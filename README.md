@@ -60,3 +60,28 @@ Observação: cadastro/login e salvamento do perfil estão conectados ao Supabas
 5. Acesse `/financeiro` para consultar o plano e o histórico de cobranças.
 
 A migration preserva a tabela `subscriptions` existente e cria estrutura inicial de planos, pagamentos, métodos de pagamento (somente referências/token do provedor), faturas, eventos e auditoria. Os preços Premium permanecem não configurados até serem definidos. O checkout, webhooks assinados, reembolso e gestão de preços ainda exigem implementação server-side antes de receber pagamentos reais. Nunca coloque chaves secretas do provedor ou a chave `service_role` no navegador ou neste ZIP.
+
+## Treinos personalizados, calendário e nutrição com IA
+
+Esta versão adiciona:
+- Cadastro, edição e exclusão de planos de treino próprios, com exercícios, séries, repetições e dia da semana.
+- Calendário pessoal para programar atividades e associar um plano de treino.
+- Área de nutrição que solicita uma sugestão alimentar à IA e salva a última resposta na conta.
+- API server-side para IA: a chave OpenAI nunca é enviada ao navegador.
+
+### Ativação no Supabase
+
+No SQL Editor do projeto já utilizado, execute **uma única vez**:
+`supabase/migrations/20261111_workouts_calendar_diet.sql`
+
+Não execute novamente o schema inicial nem a migration de administração/financeiro se eles já foram aplicados.
+
+### Ativação da IA alimentar
+
+Adicione `OPENAI_API_KEY` nas variáveis de ambiente do `.env.local` para testes locais e nas Environment Variables da Vercel para produção. Opcionalmente, defina `OPENAI_MODEL` (padrão `gpt-4o-mini`). Depois reinicie o servidor local ou faça redeploy na Vercel. A chave deve ser secreta e nunca deve começar com `NEXT_PUBLIC_`.
+
+Sem a chave, treinos e calendário continuam funcionando; a tela de nutrição informará que a IA ainda não foi configurada. A geração usa a API da OpenAI e pode gerar custos conforme o uso e o modelo escolhido.
+
+### Limites da sugestão alimentar
+
+O conteúdo gerado é educativo, não é prescrição nutricional nem substitui nutricionista. Não deve ser usado para tratar condições médicas ou validar alergias/intolerâncias. Menores de 18 anos e pessoas com necessidades clínicas devem buscar orientação profissional.

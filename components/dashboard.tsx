@@ -1,505 +1,63 @@
-
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  Activity, ArrowUpRight, Brain, CalendarDays, Check, ChevronRight,
-  Dumbbell, Flame, LogIn, LogOut, Plus, Sparkles, Timer, TrendingUp,
-  UserRound, X
-} from "lucide-react";
+import { Activity, ArrowUpRight, Brain, CalendarDays, Check, ChevronRight, Dumbbell, Flame, LogIn, LogOut, Plus, Sparkles, Timer, TrendingUp, UserRound, X, Trash2, Utensils, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Exercise = { name: string; sets: number; reps: string };
-
-const starter: Exercise[] = [
-  { name: "Supino reto", sets: 3, reps: "8–12" },
-  { name: "Supino inclinado com halteres", sets: 3, reps: "10–12" },
-  { name: "Crucifixo na máquina", sets: 3, reps: "12–15" },
-  { name: "Tríceps na corda", sets: 3, reps: "10–12" },
-  { name: "Tríceps francês", sets: 3, reps: "10–12" },
-];
-
-export default function Dashboard() {
-  const [tab, setTab] = useState("Início");
-  const [user, setUser] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [exercises] = useState<Exercise[]>(starter);
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
-  const [sessions, setSessions] = useState(0);
-  const [showProfile, setShowProfile] = useState(false);
-  const [weight, setWeight] = useState("");
-  const [goal, setGoal] = useState("Ganhar massa muscular");
-  const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
-
-  const done = Object.values(completed).filter(Boolean).length;
-  const total = useMemo(
-    () => exercises.reduce((n, e) => n + e.sets, 0),
-    [exercises]
-  );
-
-  useEffect(() => {
-    let active = true;
-
-    const load = async () => {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user: authUser },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError) throw authError;
-
-        if (!authUser) {
-          window.location.href = "/login";
-          return;
-        }
-
-        if (active) setUser(authUser.email ?? null);
-
-        const { data: role } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        if (active) setIsAdmin(role?.role === "admin");
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("weight_kg, goal")
-          .eq("id", authUser.id)
-          .maybeSingle();
-
-        if (active && profile) {
-          setWeight(
-            profile.weight_kg == null ? "" : String(profile.weight_kg)
-          );
-          if (profile.goal) setGoal(profile.goal);
-        }
-      } catch (err) {
-        if (active) {
-          setNotice(
-            err instanceof Error
-              ? err.message
-              : "Não foi possível carregar sua conta."
-          );
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function logout() {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } finally {
-      window.location.href = "/login";
-    }
-  }
-
-  async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSaving(true);
-    setNotice("");
-
-    try {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-
-      if (!data.user) {
-        throw new Error("Entre na sua conta para salvar o perfil.");
-      }
-
-      const { error } = await supabase.from("profiles").upsert({
-        id: data.user.id,
-        weight_kg: weight ? Number(weight) : null,
-        goal,
-      });
-
-      if (error) throw error;
-
-      setNotice("Perfil salvo com sucesso.");
-      setShowProfile(false);
-    } catch (err) {
-      setNotice(
-        err instanceof Error ? err.message : "Não foi possível salvar."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function finish() {
-    if (done < total) {
-      setNotice("Conclua todas as séries para finalizar.");
-      return;
-    }
-
-    setSessions((v) => v + 1);
-    setNotice("Treino concluído! Excelente trabalho.");
-  }
-
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <Link className="brand" href="/">
-          FITMIND <span>AI.</span>
-        </Link>
-
-        <p className="tagline">SUA EVOLUÇÃO COMEÇA NA MENTE.</p>
-        <div className="side-label">MENU</div>
-
-        {["Início", "Treinos", "Evolução"].map((item, i) => (
-          <button
-            key={item}
-            className={`side-link ${tab === item ? "selected" : ""}`}
-            onClick={() => setTab(item)}
-          >
-            {i === 0 ? (
-              <Activity size={18} />
-            ) : i === 1 ? (
-              <Dumbbell size={18} />
-            ) : (
-              <TrendingUp size={18} />
-            )}
-            {item}
-          </button>
-        ))}
-
-        <Link className="side-link" href="/financeiro">
-          <span>R$</span> Financeiro
-        </Link>
-
-        {isAdmin && (
-          <Link className="side-link" href="/admin">
-            <span>⚙</span> Administração
-          </Link>
-        )}
-
-        <div className="side-bottom">
-          <div className="avatar">FM</div>
-          <div className="user-info">
-            <strong>{user ?? "Visitante"}</strong>
-            <span>{user ? "Conta conectada" : "Modo demonstração"}</span>
-          </div>
-
-          {user ? (
-            <button
-              className="icon-btn"
-              title="Sair"
-              onClick={logout}
-            >
-              <LogOut size={17} />
-            </button>
-          ) : (
-            <Link className="icon-btn" title="Entrar" href="/login">
-              <LogIn size={17} />
-            </Link>
-          )}
-        </div>
-      </aside>
-
-      <section className="main-area">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">QUARTA-FEIRA · SUA JORNADA</span>
-            <h1>
-              {tab === "Início"
-                ? "Olá. Vamos evoluir?"
-                : tab === "Treinos"
-                  ? "Seus treinos"
-                  : "Acompanhe sua evolução"}
-            </h1>
-          </div>
-
-          <button className="profile-btn" onClick={() => setShowProfile(true)}>
-            <UserRound size={17} /> Meu perfil
-          </button>
-        </header>
-
-        {notice && (
-          <div className="notice">
-            <span>{notice}</span>
-            <button className="icon-btn" onClick={() => setNotice("")}>
-              <X size={15} />
-            </button>
-          </div>
-        )}
-
-        {tab === "Início" && (
-          <>
-            <section className="hero-card">
-              <div className="hero-copy">
-                <span className="pill">
-                  <Sparkles size={13} /> SEU PERSONAL INTELIGENTE
-                </span>
-                <h2>
-                  Consistência hoje.
-                  <br />
-                  <em>Resultado amanhã.</em>
-                </h2>
-                <p>
-                  Seu espaço para treinar com intenção e acompanhar cada
-                  conquista.
-                </p>
-                <button className="primary" onClick={() => setTab("Treinos")}>
-                  Ver treino de hoje <ArrowUpRight size={17} />
-                </button>
-              </div>
-
-              <div className="hero-art">
-                <div className="orb">
-                  <Brain size={70} strokeWidth={1.15} />
-                </div>
-                <span className="orbit orbit-one" />
-                <span className="orbit orbit-two" />
-              </div>
-            </section>
-
-            <div className="section-heading">
-              <div>
-                <span className="eyebrow">VISÃO GERAL</span>
-                <h2>Seu resumo</h2>
-              </div>
-              <span className="muted small">Acompanhe seu ritmo</span>
-            </div>
-
-            <div className="stats-grid">
-              <article className="stat-card">
-                <div className="stat-icon"><Dumbbell size={18} /></div>
-                <span>Treinos concluídos</span>
-                <strong>{sessions}</strong>
-                <small>nesta sessão de demonstração</small>
-              </article>
-
-              <article className="stat-card">
-                <div className="stat-icon"><CalendarDays size={18} /></div>
-                <span>Meta semanal</span>
-                <strong>{Math.min(sessions, 6)}<i> / 6</i></strong>
-                <div className="mini-progress">
-                  <span style={{ width: `${Math.min(sessions / 6 * 100, 100)}%` }} />
-                </div>
-              </article>
-
-              <article className="stat-card">
-                <div className="stat-icon"><Flame size={18} /></div>
-                <span>Séries marcadas</span>
-                <strong>{done}</strong>
-                <small>no treino atual</small>
-              </article>
-            </div>
-
-            <div className="content-grid">
-              <article className="surface workout-preview">
-                <div className="card-heading">
-                  <div>
-                    <span className="eyebrow">TREINO DO DIA</span>
-                    <h2>Peito e tríceps</h2>
-                  </div>
-                  <span className="pill">HIPERTROFIA</span>
-                </div>
-
-                <div className="workout-meta">
-                  <span><Dumbbell size={15} /> 5 exercícios</span>
-                  <span><Timer size={15} /> 45–55 min</span>
-                </div>
-
-                {exercises.slice(0, 3).map((e, i) => (
-                  <div className="exercise-row" key={e.name}>
-                    <span className="exercise-number">0{i + 1}</span>
-                    <div>
-                      <strong>{e.name}</strong>
-                      <small>{e.sets} séries · {e.reps} reps</small>
-                    </div>
-                    <ChevronRight size={17} />
-                  </div>
-                ))}
-
-                <button className="text-button" onClick={() => setTab("Treinos")}>
-                  Abrir treino completo <ArrowUpRight size={16} />
-                </button>
-              </article>
-
-              <article className="surface insight-card">
-                <div className="stat-icon"><Sparkles size={18} /></div>
-                <span className="eyebrow">LEMBRETE FITMIND</span>
-                <h2>O melhor treino é aquele que você consegue manter.</h2>
-                <p>
-                  Respeite seu ritmo, priorize a execução e aumente a
-                  intensidade gradualmente.
-                </p>
-                <div className="insight-foot">
-                  <span>MENTE + MOVIMENTO</span>
-                  <Brain size={18} />
-                </div>
-              </article>
-            </div>
-          </>
-        )}
-
-        {tab === "Treinos" && (
-          <section className="surface full-panel">
-            <div className="card-heading">
-              <div>
-                <span className="eyebrow">PLANO DE HOJE</span>
-                <h2>Peito e tríceps</h2>
-                <p className="muted">Marque cada série conforme concluir.</p>
-              </div>
-              <span className="pill">{done}/{total} SÉRIES</span>
-            </div>
-
-            <div className="progress-track">
-              <span style={{ width: `${total ? done / total * 100 : 0}%` }} />
-            </div>
-
-            {exercises.map((e, i) => (
-              <div className="training-exercise" key={e.name}>
-                <div className="exercise-title">
-                  <span className="exercise-number">0{i + 1}</span>
-                  <div>
-                    <strong>{e.name}</strong>
-                    <small>{e.reps} repetições · descanso 60–90s</small>
-                  </div>
-                </div>
-
-                <div className="set-list">
-                  {Array.from({ length: e.sets }, (_, j) => {
-                    const key = `${i}-${j}`;
-                    return (
-                      <button
-                        key={key}
-                        className={`set-button ${completed[key] ? "is-done" : ""}`}
-                        onClick={() =>
-                          setCompleted((v) => ({ ...v, [key]: !v[key] }))
-                        }
-                      >
-                        {completed[key] ? <Check size={14} /> : `S${j + 1}`}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-
-            <div className="finish-row">
-              <span className="muted small">
-                {done} de {total} séries concluídas
-              </span>
-              <button className="primary" onClick={finish}>
-                Finalizar treino <Check size={16} />
-              </button>
-            </div>
-          </section>
-        )}
-
-        {tab === "Evolução" && (
-          <>
-            <div className="stats-grid">
-              <article className="stat-card">
-                <div className="stat-icon"><Dumbbell size={18} /></div>
-                <span>Treinos registrados</span>
-                <strong>{sessions}</strong>
-                <small>nesta demonstração</small>
-              </article>
-
-              <article className="stat-card">
-                <div className="stat-icon"><Check size={18} /></div>
-                <span>Séries concluídas</span>
-                <strong>{done}</strong>
-                <small>no treino atual</small>
-              </article>
-
-              <article className="stat-card">
-                <div className="stat-icon"><TrendingUp size={18} /></div>
-                <span>Peso corporal</span>
-                <strong>—</strong>
-                <small>Adicione no seu perfil</small>
-              </article>
-            </div>
-
-            <article className="surface full-panel">
-              <span className="eyebrow">PRÓXIMOS INDICADORES</span>
-              <h2>Seu progresso, com o tempo.</h2>
-              <p className="muted">
-                O histórico persistente, gráficos e medidas serão ativados
-                após conectar seu banco Supabase.
-              </p>
-              <button className="secondary" onClick={() => setShowProfile(true)}>
-                Adicionar informações <Plus size={16} />
-              </button>
-            </article>
-          </>
-        )}
-
-        <footer className="footer">
-          FITMIND AI <span>·</span> Treine com inteligência.
-        </footer>
-      </section>
-
-      {showProfile && (
-        <div className="modal-backdrop" onClick={() => setShowProfile(false)}>
-          <form
-            className="modal"
-            onSubmit={saveProfile}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="modal-close icon-btn"
-              onClick={() => setShowProfile(false)}
-            >
-              <X size={18} />
-            </button>
-
-            <span className="eyebrow">SEU PERFIL</span>
-            <h2>Vamos personalizar sua jornada.</h2>
-
-            <label>
-              Peso atual (kg)
-              <input
-                type="number"
-                min="1"
-                max="500"
-                step="0.1"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                placeholder="Ex.: 80,5"
-              />
-            </label>
-
-            <label>
-              Objetivo principal
-              <select value={goal} onChange={(e) => setGoal(e.target.value)}>
-                <option>Ganhar massa muscular</option>
-                <option>Perder gordura</option>
-                <option>Recomposição corporal</option>
-                <option>Melhorar condicionamento</option>
-                <option>Ganhar força</option>
-                <option>Saúde e qualidade de vida</option>
-              </select>
-            </label>
-
-            <button className="primary full" disabled={saving}>
-              {saving ? "Salvando..." : "Salvar perfil"}
-            </button>
-
-            {!user && (
-              <p className="muted small">
-                Entre ou crie uma conta para salvar as informações no banco.
-              </p>
-            )}
-          </form>
-        </div>
-      )}
-    </main>
-  );
+type Exercise = { id?:string; name:string; sets:number; reps:string; rest_seconds?:number };
+type Day = { id?:string; day_name:string; exercises:Exercise[] };
+type Plan = { id:string; name:string; objective:string|null; workout_days:Day[] };
+type Event = { id:string; title:string; event_date:string; notes:string|null; plan_id:string|null };
+type Meal = { name:string; time?:string; foods:string[] };
+type Diet = { title:string; summary:string; daily_calories?:number; protein_g?:number; carbs_g?:number; fats_g?:number; meals:Meal[]; notes?:string[] };
+const weekdays=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
+const today=()=>new Date().toLocaleDateString("en-CA");
+export default function Dashboard(){
+ const [tab,setTab]=useState("Início"),[user,setUser]=useState<string|null>(null),[userId,setUserId]=useState<string|null>(null),[isAdmin,setIsAdmin]=useState(false);
+ const [plans,setPlans]=useState<Plan[]>([]),[activePlan,setActivePlan]=useState<Plan|null>(null),[events,setEvents]=useState<Event[]>([]);
+ const [showWorkout,setShowWorkout]=useState(false),[editingPlan,setEditingPlan]=useState<string|null>(null),[workoutName,setWorkoutName]=useState("Meu treino"),[workoutObjective,setWorkoutObjective]=useState("Hipertrofia"),[dayName,setDayName]=useState("Segunda"),[exerciseName,setExerciseName]=useState(""),[sets,setSets]=useState("3"),[reps,setReps]=useState("8–12"),[draftExercises,setDraftExercises]=useState<Exercise[]>([]);
+ const [calendarDate,setCalendarDate]=useState(today()),[eventTitle,setEventTitle]=useState("Treino"),[eventPlan,setEventPlan]=useState(""),[eventNotes,setEventNotes]=useState("");
+ const [diet,setDiet]=useState<Diet|null>(null),[dietBusy,setDietBusy]=useState(false),[dietRestrictions,setDietRestrictions]=useState(""),[dietMeals,setDietMeals]=useState("5");
+ const [completed,setCompleted]=useState<Record<string,boolean>>({}),[sessions,setSessions]=useState(0),[showProfile,setShowProfile]=useState(false);
+ const [weight,setWeight]=useState(""),[height,setHeight]=useState(""),[age,setAge]=useState(""),[goal,setGoal]=useState("Ganhar massa muscular");
+ const [saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[notice,setNotice]=useState("");
+ const currentDay=activePlan?.workout_days?.[0], exercises=currentDay?.exercises??[];
+ const total=useMemo(()=>exercises.reduce((n,e)=>n+e.sets,0),[exercises]); const done=Object.values(completed).filter(Boolean).length;
+ useEffect(()=>{let live=true; (async()=>{try{const sb=createClient();const {data:{user:u},error}=await sb.auth.getUser();if(error)throw error;if(!u){window.location.href="/login";return;}if(!live)return;setUser(u.email??null);setUserId(u.id);
+ const [{data:role},{data:profile},{data:rawPlans},{data:rawEvents},{data:rawDiets}]=await Promise.all([
+ sb.from("user_roles").select("role").eq("user_id",u.id).maybeSingle(),
+ sb.from("profiles").select("weight_kg,height_cm,age,goal").eq("id",u.id).maybeSingle(),
+ sb.from("workout_plans").select("id,name,objective").eq("user_id",u.id).eq("is_active",true).order("created_at",{ascending:false}),
+ sb.from("workout_calendar").select("id,title,event_date,notes,plan_id").eq("user_id",u.id).order("event_date"),
+ sb.from("diet_plans").select("content").eq("user_id",u.id).order("created_at",{ascending:false}).limit(1)
+ ]);
+ if(!live)return;setIsAdmin(role?.role==="admin");if(profile){setWeight(profile.weight_kg==null?"":String(profile.weight_kg));setHeight(profile.height_cm==null?"":String(profile.height_cm));setAge(profile.age==null?"":String(profile.age));if(profile.goal)setGoal(profile.goal);}
+ const loaded:Plan[]=[];for(const p of rawPlans??[]){const {data:days}=await sb.from("workout_days").select("id,day_name,sort_order").eq("plan_id",p.id).order("sort_order");const ds:Day[]=[];for(const d of days??[]){const {data:ex}=await sb.from("workout_exercises").select("id,exercise_name,sets,reps,rest_seconds").eq("workout_day_id",d.id).order("sort_order");ds.push({id:d.id,day_name:d.day_name,exercises:(ex??[]).map(x=>({id:x.id,name:x.exercise_name,sets:x.sets,reps:x.reps,rest_seconds:x.rest_seconds}))});}loaded.push({...p,workout_days:ds});}
+ setPlans(loaded);setActivePlan(loaded[0]??null);setEvents(rawEvents??[]);if(rawDiets?.[0]?.content)setDiet(rawDiets[0].content as Diet);
+ }catch(e){if(live)setNotice(e instanceof Error?e.message:"Erro ao carregar dados.");}finally{if(live){setLoading(false);}}})();return()=>{live=false}},[]);
+ async function logout(){const sb=createClient();await sb.auth.signOut();window.location.href="/login";}
+ async function saveProfile(e:React.FormEvent){e.preventDefault();setSaving(true);try{const sb=createClient();const {error}=await sb.from("profiles").upsert({id:userId,weight_kg:weight?Number(weight):null,height_cm:height?Number(height):null,age:age?Number(age):null,goal});if(error)throw error;setNotice("Perfil atualizado.");setShowProfile(false);}catch(e){setNotice(e instanceof Error?e.message:"Falha ao salvar perfil.");}finally{setSaving(false);}}
+ async function saveWorkout(e:React.FormEvent){e.preventDefault();if(!userId||!draftExercises.length){setNotice("Adicione pelo menos um exercício.");return;}setSaving(true);try{const sb=createClient();let planId=editingPlan;let planData:any;if(editingPlan){const {data:p,error}=await sb.from("workout_plans").update({name:workoutName,objective:workoutObjective}).eq("id",editingPlan).select("id,name,objective").single();if(error)throw error;planData=p;const existing=plans.find(x=>x.id===editingPlan);const dayId=existing?.workout_days?.[0]?.id;if(!dayId)throw new Error("Dia de treino não encontrado.");const {error:de}=await sb.from("workout_days").update({day_name:dayName}).eq("id",dayId);if(de)throw de;const {error:del}=await sb.from("workout_exercises").delete().eq("workout_day_id",dayId);if(del)throw del;const {error:ee}=await sb.from("workout_exercises").insert(draftExercises.map((x,i)=>({workout_day_id:dayId,exercise_name:x.name,sets:x.sets,reps:x.reps,rest_seconds:90,sort_order:i})));if(ee)throw ee;const updated:Plan={...planData,workout_days:[{id:dayId,day_name:dayName,exercises:draftExercises}]};setPlans(v=>v.map(x=>x.id===editingPlan?updated:x));setActivePlan(updated);setNotice("Treino atualizado!");}else{const {data:p,error}=await sb.from("workout_plans").insert({user_id:userId,name:workoutName,objective:workoutObjective,is_active:true}).select("id,name,objective").single();if(error)throw error;const {data:d,error:de}=await sb.from("workout_days").insert({plan_id:p.id,day_name:dayName,sort_order:0}).select("id").single();if(de)throw de;const {error:ee}=await sb.from("workout_exercises").insert(draftExercises.map((x,i)=>({workout_day_id:d.id,exercise_name:x.name,sets:x.sets,reps:x.reps,rest_seconds:90,sort_order:i})));if(ee)throw ee;const created:Plan={...p,workout_days:[{id:d.id,day_name:dayName,exercises:draftExercises}]};setPlans(v=>[created,...v]);setActivePlan(created);setNotice("Treino cadastrado!");}setEditingPlan(null);setDraftExercises([]);setShowWorkout(false);setTab("Treinos");}catch(e){setNotice(e instanceof Error?e.message:"Não foi possível salvar o treino.");}finally{setSaving(false);}}
+ async function deletePlan(id:string){if(!confirm("Excluir este treino e seus exercícios?"))return;const sb=createClient();const {error}=await sb.from("workout_plans").delete().eq("id",id);if(error){setNotice(error.message);return;}const next=plans.filter(p=>p.id!==id);setPlans(next);setActivePlan(next[0]??null);setNotice("Treino excluído.");}
+ async function addEvent(e:React.FormEvent){e.preventDefault();if(!userId)return;const sb=createClient();const {data,error}=await sb.from("workout_calendar").insert({user_id:userId,title:eventTitle,event_date:calendarDate,plan_id:eventPlan||null,notes:eventNotes||null}).select("id,title,event_date,notes,plan_id").single();if(error){setNotice(error.message);return;}setEvents(v=>[...v,data].sort((a,b)=>a.event_date.localeCompare(b.event_date)));setEventNotes("");setNotice("Atividade adicionada ao calendário.");}
+ async function removeEvent(id:string){const sb=createClient();const {error}=await sb.from("workout_calendar").delete().eq("id",id);if(error){setNotice(error.message);return;}setEvents(v=>v.filter(x=>x.id!==id));}
+ async function generateDiet(){setDietBusy(true);setNotice("");try{const res=await fetch("/api/diet/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({goal,weight:weight?Number(weight):null,height:height?Number(height):null,age:age?Number(age):null,meals:Number(dietMeals),restrictions:dietRestrictions})});const payload=await res.json();if(!res.ok)throw new Error(payload.error??"Não foi possível gerar o plano.");const sb=createClient();const {error}=await sb.from("diet_plans").insert({user_id:userId,title:payload.title,goal,content:payload});if(error)throw error;setDiet(payload);setNotice("Sugestão alimentar gerada e salva.");}catch(e){setNotice(e instanceof Error?e.message:"Erro ao gerar sugestão.");}finally{setDietBusy(false);}}
+ function finish(){if(done<total){setNotice("Conclua todas as séries para finalizar.");return;}setSessions(v=>v+1);setNotice("Treino concluído! Excelente trabalho.");}
+ const upcoming=events.filter(e=>e.event_date>=today());
+ const monthBase=new Date(calendarDate+"T12:00:00"), monthYear=monthBase.getFullYear(), monthIndex=monthBase.getMonth();
+ const monthLabel=monthBase.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+ const firstWeekday=(new Date(monthYear,monthIndex,1).getDay()+6)%7, daysInMonth=new Date(monthYear,monthIndex+1,0).getDate();
+ const calendarCells:(number|null)[]=[...Array(firstWeekday).fill(null),...Array.from({length:daysInMonth},(_,i)=>i+1)];
+ function shiftMonth(delta:number){const d=new Date(calendarDate+"T12:00:00");d.setMonth(d.getMonth()+delta);setCalendarDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`)}
+ return <main className="app-shell"><aside className="sidebar"><a className="brand" href="/">FITMIND <span>AI.</span></a><p className="tagline">SUA EVOLUÇÃO COMEÇA NA MENTE.</p><div className="side-label">MENU</div>{["Início","Treinos","Calendário","Nutrição","Evolução"].map((item,i)=><button key={item} className={`side-link ${tab===item?"selected":""}`} onClick={()=>setTab(item)}>{i===0?<Activity size={18}/>:i===1?<Dumbbell size={18}/>:i===2?<CalendarDays size={18}/>:i===3?<Utensils size={18}/>:<TrendingUp size={18}/>} {item}</button>)}<a className="side-link" href="/financeiro"><span>R$</span> Financeiro</a>{isAdmin&&<a className="side-link" href="/admin"><span>⚙</span> Administração</a>}<div className="side-bottom"><div className="avatar">FM</div><div className="user-info"><strong>{user??"Visitante"}</strong><span>Conta conectada</span></div><button className="icon-btn" title="Sair" onClick={logout}><LogOut size={17}/></button></div></aside>
+ <section className="main-area"><header className="topbar"><div><span className="eyebrow">FITMIND AI · SUA JORNADA</span><h1>{tab==="Início"?"Olá. Vamos evoluir?":tab==="Treinos"?"Meus treinos":tab==="Calendário"?"Calendário de atividades":tab==="Nutrição"?"Nutrição inteligente":"Acompanhe sua evolução"}</h1></div><button className="profile-btn" onClick={()=>setShowProfile(true)}><UserRound size={17}/> Meu perfil</button></header>
+ {notice&&<div className="notice"><span>{notice}</span><button className="icon-btn" onClick={()=>setNotice("")}><X size={15}/></button></div>}{loading&&<p className="muted">Carregando seus dados...</p>}
+ {tab==="Início"&&<><section className="hero-card"><div className="hero-copy"><span className="pill"><Sparkles size={13}/> SEU PERSONAL INTELIGENTE</span><h2>Consistência hoje.<br/><em>Resultado amanhã.</em></h2><p>Organize seus treinos, acompanhe sua rotina e evolua com inteligência.</p><button className="primary" onClick={()=>setTab("Treinos")}>Gerenciar meus treinos <ArrowUpRight size={17}/></button></div><div className="hero-art"><div className="orb"><Brain size={70}/></div><span className="orbit orbit-one"/><span className="orbit orbit-two"/></div></section><div className="section-heading"><div><span className="eyebrow">VISÃO GERAL</span><h2>Seu resumo</h2></div></div><div className="stats-grid"><article className="stat-card"><div className="stat-icon"><Dumbbell size={18}/></div><span>Treinos cadastrados</span><strong>{plans.length}</strong><small>seus planos ativos</small></article><article className="stat-card"><div className="stat-icon"><CalendarDays size={18}/></div><span>Próximas atividades</span><strong>{upcoming.length}</strong><small>no calendário</small></article><article className="stat-card"><div className="stat-icon"><Flame size={18}/></div><span>Objetivo</span><strong style={{fontSize:17}}>{goal}</strong><small>definido no perfil</small></article></div><div className="content-grid"><article className="surface"><div className="card-heading"><div><span className="eyebrow">SEU TREINO</span><h2>{activePlan?.name??"Nenhum treino cadastrado"}</h2></div></div><p className="muted">{activePlan?.objective??"Crie seu primeiro plano de treino."}</p><button className="text-button" onClick={()=>setTab("Treinos")}>Abrir meus treinos <ArrowUpRight size={16}/></button></article><article className="surface insight-card"><div className="stat-icon"><Sparkles size={18}/></div><span className="eyebrow">FITMIND AI</span><h2>Seu planejamento em um só lugar.</h2><p>Monte sua rotina e gere uma sugestão alimentar alinhada ao seu objetivo.</p></article></div></>}
+ {tab==="Treinos"&&<><div className="section-heading"><div><span className="eyebrow">PERSONALIZE SUA ROTINA</span><h2>Seus planos de treino</h2></div><button className="primary" onClick={()=>{setEditingPlan(null);setWorkoutName("Meu treino");setWorkoutObjective("Hipertrofia");setDayName("Segunda");setDraftExercises([]);setShowWorkout(true)}}><Plus size={16}/> Novo treino</button></div>{plans.length===0&&<article className="surface"><p>Você ainda não cadastrou treinos. Crie seu primeiro plano para começar.</p></article>}{plans.map(p=><article className="surface full-panel" key={p.id}><div className="card-heading"><div><span className="eyebrow">{p.objective??"TREINO PERSONALIZADO"}</span><h2>{p.name}</h2></div><div className="row-actions"><button className="secondary" onClick={()=>{setEditingPlan(p.id);setWorkoutName(p.name);setWorkoutObjective(p.objective??"Hipertrofia");setDayName(p.workout_days[0]?.day_name??"Segunda");setDraftExercises(p.workout_days[0]?.exercises.map(x=>({name:x.name,sets:x.sets,reps:x.reps}))??[]);setShowWorkout(true)}}>Editar</button><button className="icon-btn" title="Excluir treino" onClick={()=>deletePlan(p.id)}><Trash2 size={17}/></button></div></div>{p.workout_days.map(d=><div key={d.id}><h3>{d.day_name}</h3>{d.exercises.map((x,i)=><div className="exercise-row" key={x.id??i}><span className="exercise-number">{i+1}</span><div><strong>{x.name}</strong><small>{x.sets} séries · {x.reps} repetições · descanso {x.rest_seconds??90}s</small></div></div>)}</div>)}<button className="secondary" onClick={()=>{setEventPlan(p.id);setTab("Calendário");setNotice("Plano selecionado. Escolha a data para agendá-lo.")}}>Agendar este treino</button></article>)}</>}
+ {tab==="Calendário"&&<><article className="surface full-panel"><span className="eyebrow">AGENDE SUA ROTINA</span><h2>Adicionar atividade</h2><form className="inline-form" onSubmit={addEvent}><label>Data<input type="date" required value={calendarDate} onChange={e=>setCalendarDate(e.target.value)}/></label><label>Atividade<input required value={eventTitle} onChange={e=>setEventTitle(e.target.value)} placeholder="Ex.: Treino de pernas"/></label><label>Plano<select value={eventPlan} onChange={e=>setEventPlan(e.target.value)}><option value="">Sem plano vinculado</option>{plans.map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><label>Observações<input value={eventNotes} onChange={e=>setEventNotes(e.target.value)} placeholder="Opcional"/></label><button className="primary"><Plus size={16}/> Adicionar ao calendário</button></form></article><article className="surface full-panel"><div className="card-heading"><div><span className="eyebrow">VISÃO MENSAL</span><h2 style={{textTransform:"capitalize"}}>{monthLabel}</h2></div><div className="row-actions"><button className="secondary" type="button" onClick={()=>shiftMonth(-1)}>‹</button><button className="secondary" type="button" onClick={()=>shiftMonth(1)}>›</button></div></div><div className="calendar-grid">{["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"].map(d=><span className="calendar-weekday" key={d}>{d}</span>)}{calendarCells.map((day,i)=>{const date=day?`${monthYear}-${String(monthIndex+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`:"";const hasEvent=events.some(ev=>ev.event_date===date);return <button type="button" key={i} disabled={!day} className={`calendar-cell ${date===calendarDate?"is-selected":""} ${hasEvent?"has-event":""}`} onClick={()=>day&&setCalendarDate(date)}>{day??""}{hasEvent&&<i/>}</button>})}</div><p className="muted small">Selecione um dia para programar uma atividade.</p></article><article className="surface full-panel"><span className="eyebrow">SUA AGENDA</span><h2>Próximas atividades</h2>{upcoming.length?upcoming.map(ev=><div className="exercise-row" key={ev.id}><div className="calendar-date">{new Date(ev.event_date+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})}</div><div><strong>{ev.title}</strong><small>{ev.notes??"Atividade programada"}</small></div><button className="icon-btn" onClick={()=>removeEvent(ev.id)}><Trash2 size={16}/></button></div>):<p className="muted">Nenhuma atividade futura cadastrada.</p>}</article></>}
+ {tab==="Nutrição"&&<><article className="surface full-panel"><span className="eyebrow"><Sparkles size={13}/> INTELIGÊNCIA ARTIFICIAL</span><h2>Monte uma sugestão alimentar</h2><p className="muted">A IA considera seu objetivo e os dados do perfil para sugerir refeições. Complete seu perfil para melhorar a personalização.</p><div className="diet-form"><label>Objetivo<select value={goal} onChange={e=>setGoal(e.target.value)}><option>Ganhar massa muscular</option><option>Perder gordura</option><option>Recomposição corporal</option><option>Melhorar condicionamento</option><option>Ganhar força</option><option>Saúde e qualidade de vida</option></select></label><label>Quantidade de refeições<select value={dietMeals} onChange={e=>setDietMeals(e.target.value)}><option value="3">3 refeições</option><option value="4">4 refeições</option><option value="5">5 refeições</option><option value="6">6 refeições</option></select></label><label>Preferências/restrições alimentares<textarea value={dietRestrictions} onChange={e=>setDietRestrictions(e.target.value)} placeholder="Ex.: vegetariano, não gosto de peixe, intolerância à lactose..."/></label><button className="primary" disabled={dietBusy} onClick={generateDiet}>{dietBusy?"Preparando sugestão...":<><Sparkles size={16}/> Gerar dieta com IA</>}</button></div><p className="muted small">A sugestão é educativa e não substitui nutricionista. Não use para tratar doenças, alergias ou condições clínicas; procure um profissional para orientação individual.</p></article>{diet&&<article className="surface full-panel"><span className="eyebrow">SUA SUGESTÃO MAIS RECENTE</span><h2>{diet.title}</h2><p className="muted">{diet.summary}</p><div className="stats-grid diet-macros">{[["Calorias",diet.daily_calories??"—","kcal"],["Proteínas",diet.protein_g??"—","g"],["Carboidratos",diet.carbs_g??"—","g"],["Gorduras",diet.fats_g??"—","g"]].map(([a,b,c])=><div className="stat-card" key={String(a)}><span>{a}</span><strong>{b}</strong><small>{c} / dia · estimativa</small></div>)}</div>{diet.meals?.map((m,i)=><div className="exercise-row meal-row" key={i}><div><strong>{m.time?m.time+" · ":""}{m.name}</strong><small>{m.foods.join(" • ")}</small></div></div>)}{diet.notes?.map((n,i)=><p className="muted small" key={i}>• {n}</p>)}</article>}</>}
+ {tab==="Evolução"&&<article className="surface full-panel"><span className="eyebrow">SEU PROGRESSO</span><h2>Continue consistente.</h2><p className="muted">Seus treinos e atividades ficam organizados na sua conta. Registre medidas no perfil para acompanhar suas mudanças.</p><button className="secondary" onClick={()=>setShowProfile(true)}>Atualizar perfil</button></article>}
+ <footer className="footer">FITMIND AI <span>·</span> Treine com inteligência.</footer></section>
+ {showWorkout&&<div className="modal-backdrop" onClick={()=>setShowWorkout(false)}><form className="modal workout-modal" onSubmit={saveWorkout} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close icon-btn" onClick={()=>{setShowWorkout(false);setEditingPlan(null)}}><X size={18}/></button><span className="eyebrow">NOVO PLANO</span><h2>{editingPlan?"Editar treino":"Cadastre seu treino"}</h2><label>Nome do treino<input required value={workoutName} onChange={e=>setWorkoutName(e.target.value)}/></label><label>Objetivo<select value={workoutObjective} onChange={e=>setWorkoutObjective(e.target.value)}><option>Hipertrofia</option><option>Emagrecimento</option><option>Força</option><option>Condicionamento</option><option>Saúde geral</option></select></label><label>Dia da semana<select value={dayName} onChange={e=>setDayName(e.target.value)}>{weekdays.map(d=><option key={d}>{d}</option>)}</select></label><div className="exercise-add"><label>Exercício<input value={exerciseName} onChange={e=>setExerciseName(e.target.value)} placeholder="Ex.: Agachamento"/></label><label>Séries<input type="number" min="1" max="20" value={sets} onChange={e=>setSets(e.target.value)}/></label><label>Repetições<input value={reps} onChange={e=>setReps(e.target.value)}/></label><button type="button" className="secondary" onClick={()=>{if(exerciseName.trim()){setDraftExercises(v=>[...v,{name:exerciseName.trim(),sets:Number(sets),reps}]);setExerciseName("");}}}><Plus size={15}/> Adicionar exercício</button></div>{draftExercises.map((x,i)=><div className="exercise-row" key={i}><div><strong>{x.name}</strong><small>{x.sets} séries · {x.reps} reps</small></div><button type="button" className="icon-btn" onClick={()=>setDraftExercises(v=>v.filter((_,j)=>j!==i))}><X size={15}/></button></div>)}<button className="primary full" disabled={saving}>{saving?"Salvando...":<><Save size={16}/> {editingPlan?"Salvar alterações":"Salvar treino"}</>}</button></form></div>}
+ {showProfile&&<div className="modal-backdrop" onClick={()=>setShowProfile(false)}><form className="modal" onSubmit={saveProfile} onClick={e=>e.stopPropagation()}><button type="button" className="modal-close icon-btn" onClick={()=>setShowProfile(false)}><X size={18}/></button><span className="eyebrow">SEU PERFIL</span><h2>Personalize sua jornada</h2><label>Idade<input type="number" min="13" max="110" value={age} onChange={e=>setAge(e.target.value)}/></label><label>Altura (cm)<input type="number" min="80" max="250" value={height} onChange={e=>setHeight(e.target.value)}/></label><label>Peso atual (kg)<input type="number" min="20" max="500" step="0.1" value={weight} onChange={e=>setWeight(e.target.value)}/></label><label>Objetivo<select value={goal} onChange={e=>setGoal(e.target.value)}><option>Ganhar massa muscular</option><option>Perder gordura</option><option>Recomposição corporal</option><option>Melhorar condicionamento</option><option>Ganhar força</option><option>Saúde e qualidade de vida</option></select></label><button className="primary full" disabled={saving}>{saving?"Salvando...":"Salvar perfil"}</button></form></div>}
+ </main>;
 }
