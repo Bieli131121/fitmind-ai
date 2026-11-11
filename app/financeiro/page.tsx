@@ -57,9 +57,7 @@ export default async function FinanceiroPage() {
 
       supabase
         .from("payments")
-        .select(
-          "id,amount_cents,currency,status,description,created_at"
-        )
+        .select("id,amount_cents,currency,status,description,created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(20),
@@ -69,22 +67,58 @@ export default async function FinanceiroPage() {
   const paymentRows = (payments ?? []) as Payment[];
 
   return (
-    <main className="app-shell">
+    <main
+      className="app-shell"
+      style={{
+        display: "block",
+        width: "100%",
+        minHeight: "100vh",
+        boxSizing: "border-box",
+      }}
+    >
       <section
         className="main-area"
-        style={{ maxWidth: 1050, margin: "0 auto", width: "100%" }}
+        style={{
+          width: "100%",
+          maxWidth: 1400,
+          minWidth: 0,
+          margin: "0 auto",
+          padding: "32px clamp(16px, 4vw, 48px)",
+          boxSizing: "border-box",
+        }}
       >
-        <header className="topbar">
+        <header
+          className="topbar"
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
           <div>
             <span className="eyebrow">FITMIND AI · CONTA</span>
             <h1>Meu financeiro</h1>
+            <p className="muted">
+              Gerencie seu plano e acompanhe seus pagamentos.
+            </p>
           </div>
+
           <Link className="secondary" href="/">
             Voltar ao início
           </Link>
         </header>
 
-        <article className="surface full-panel">
+        <article
+          className="surface full-panel"
+          style={{
+            width: "100%",
+            marginTop: 28,
+            boxSizing: "border-box",
+          }}
+        >
           <span className="eyebrow">SEU PLANO ATUAL</span>
           <h2>
             {sub?.plan === "premium"
@@ -108,16 +142,36 @@ export default async function FinanceiroPage() {
           )}
         </article>
 
-        <div className="section-heading">
+        <div
+          className="section-heading"
+          style={{ width: "100%", marginTop: 32 }}
+        >
           <div>
             <span className="eyebrow">PLANOS DISPONÍVEIS</span>
             <h2>Escolha como evoluir</h2>
           </div>
         </div>
 
-        <div className="stats-grid">
+        <div
+          className="stats-grid"
+          style={{
+            width: "100%",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: 20,
+            marginTop: 20,
+          }}
+        >
           {planRows.map((p) => (
-            <article className="stat-card" key={p.id}>
+            <article
+              className="stat-card"
+              key={p.id}
+              style={{
+                minWidth: 0,
+                boxSizing: "border-box",
+                padding: 24,
+              }}
+            >
               <span className="eyebrow">
                 {p.billing_interval === "year"
                   ? "ANUAL"
@@ -128,15 +182,17 @@ export default async function FinanceiroPage() {
 
               <h2>{p.name}</h2>
 
-              <strong>
+              <strong style={{ fontSize: 24, display: "block", marginTop: 12 }}>
                 {p.is_configured
                   ? money(p.price_cents, p.currency)
                   : "Preço em configuração"}
               </strong>
 
-              <small>{p.description}</small>
+              {p.description && (
+                <p className="muted">{p.description}</p>
+              )}
 
-              <ul>
+              <ul style={{ paddingLeft: 20, lineHeight: 1.9 }}>
                 {(Array.isArray(p.features) ? p.features : []).map(
                   (feature) => (
                     <li key={feature}>{feature}</li>
@@ -151,14 +207,21 @@ export default async function FinanceiroPage() {
           ))}
         </div>
 
-        <article className="surface full-panel">
+        <article
+          className="surface full-panel"
+          style={{
+            width: "100%",
+            marginTop: 28,
+            boxSizing: "border-box",
+          }}
+        >
           <span className="eyebrow">HISTÓRICO</span>
           <h2>Pagamentos</h2>
 
           {paymentRows.length ? (
             paymentRows.map((p) => (
               <div className="exercise-row" key={p.id}>
-                <div>
+                <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                   <strong>
                     {p.description ?? "Assinatura FitMind AI"}
                   </strong>
@@ -167,6 +230,7 @@ export default async function FinanceiroPage() {
                     {p.status}
                   </small>
                 </div>
+
                 <strong>{money(p.amount_cents, p.currency)}</strong>
               </div>
             ))
@@ -177,7 +241,7 @@ export default async function FinanceiroPage() {
             </p>
           )}
 
-          <p className="muted small">
+          <p className="muted small" style={{ marginTop: 24 }}>
             A cobrança recorrente, troca de plano e cancelamento dependem
             da integração segura com o provedor de pagamento. O FitMind AI
             não armazena número completo de cartão nem CVV.
