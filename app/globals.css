@@ -29,3 +29,22 @@
 .calendar-cell i{display:none}
 
 @media(max-width:850px){.sidebar{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:5px;padding:12px 14px}.sidebar .brand{margin-right:auto}.sidebar .side-label,.sidebar .tagline,.sidebar .side-bottom{display:none}.sidebar .side-link{display:flex;padding:9px 10px;font-size:11px;margin:0}.sidebar:after{display:none}}
+
+/* Biblioteca de exercícios */
+.exercise-library{border:1px solid #3b3549;background:#191722;border-radius:13px;padding:14px;margin:4px 0}
+.library-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.library-heading h3{font-size:15px;margin:5px 0 0}
+.library-count{font-size:10px;color:#bda8ef;background:#34264c;border-radius:20px;padding:6px 9px;white-space:nowrap}
+.library-filters{display:grid;grid-template-columns:1.5fr 1fr;gap:9px;margin-bottom:10px}
+.library-filters input,.library-filters select{width:100%;min-width:0;background:#12111a;border:1px solid #40394f;color:white;border-radius:9px;padding:11px;font:inherit;font-size:11px}
+.library-results{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:230px;overflow:auto;padding-right:3px}
+.library-exercise{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;background:#211e2c;border:1px solid #393346;border-radius:9px;color:#eee9f5;padding:10px;cursor:pointer;min-width:0}
+.library-exercise>span:first-child{display:flex;flex-direction:column;gap:4px;min-width:0}
+.library-exercise strong{font-size:11px;overflow-wrap:anywhere}
+.library-exercise small{font-size:9px;color:#a59db3}
+.library-exercise.chosen{border-color:#9b7be1;background:#332647}
+.library-select{font-size:9px;color:#c5aaff;white-space:nowrap}
+.custom-exercise{margin-top:13px;border-top:1px solid #393346;padding-top:12px;color:#c9b5ff;font-size:11px}
+.custom-exercise summary{cursor:pointer;font-weight:700}
+.custom-exercise .exercise-add{margin-top:10px}
+@media(max-width:620px){.library-filters,.library-results{grid-template-columns:1fr}.library-results{max-height:190px}}
