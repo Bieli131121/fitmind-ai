@@ -52,3 +52,7 @@
 .auth-forgot { text-align: right; font-size: 11px; margin-top: -6px; }
 .auth-forgot a { color: #b7a5ff; text-decoration: none; }
 .auth-forgot a:hover { text-decoration: underline; }
+
+.app-shell{min-width:0}.main-area{min-width:0}.surface,.stat-card{min-width:0}
+@media(max-width:850px){.sidebar{position:sticky;top:0;z-index:20;display:flex;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;width:100%;min-width:0;gap:6px;padding:12px 14px;background:var(--bg);scrollbar-width:thin}.sidebar .brand{flex:0 0 auto;margin-right:10px;font-size:19px}.sidebar .side-link{display:flex;flex:0 0 auto;white-space:nowrap}.sidebar .side-bottom{display:none}.main-area{min-width:0}.content-grid{grid-template-columns:minmax(0,1fr)}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.sidebar{padding:10px;gap:4px}.sidebar .brand{font-size:17px}.sidebar .side-link{padding:9px;font-size:10px}.topbar{align-items:flex-start;flex-wrap:wrap}.topbar>div{min-width:0;flex:1 1 180px}.profile-btn{flex:0 0 auto}.section-heading,.card-heading{align-items:flex-start;flex-wrap:wrap}.section-heading>*{min-width:0}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.stat-card{padding:13px}.stat-card strong{font-size:clamp(18px,5vw,27px)}.surface{padding:15px}.calendar-grid{gap:3px}.calendar-cell{min-height:38px}.exercise-row,.training-exercise{min-width:0}.row-actions{flex-wrap:wrap}.modal{max-height:calc(100dvh - 24px);overflow-y:auto}input,select,textarea,button{max-width:100%}}

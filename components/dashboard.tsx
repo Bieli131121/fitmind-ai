@@ -31,7 +31,7 @@ export default function Dashboard(){
  sb.from("workout_plans").select("id,name,objective").eq("user_id",u.id).eq("is_active",true).order("created_at",{ascending:false}),
  sb.from("workout_calendar").select("id,title,event_date,notes,plan_id").eq("user_id",u.id).order("event_date"),
  sb.from("diet_plans").select("content").eq("user_id",u.id).order("created_at",{ascending:false}).limit(1),
- sb.from("exercises").select("id,name,muscle_group,instructions,equipment,difficulty").eq("is_public",true).order("name")
+ sb.from("exercises").select("id,name,muscle_group,instructions,equipment,difficulty").order("name")
  ]);
  if(!live)return;setCatalog((rawCatalog??[]) as CatalogExercise[]);setIsAdmin(role?.role==="admin");if(profile){setWeight(profile.weight_kg==null?"":String(profile.weight_kg));setHeight(profile.height_cm==null?"":String(profile.height_cm));setAge(profile.age==null?"":String(profile.age));if(profile.goal)setGoal(profile.goal);}
  const loaded:Plan[]=[];for(const p of rawPlans??[]){const {data:days}=await sb.from("workout_days").select("id,day_name,sort_order").eq("plan_id",p.id).order("sort_order");const ds:Day[]=[];for(const d of days??[]){const {data:ex}=await sb.from("workout_exercises").select("id,exercise_id,exercise_name,sets,reps,rest_seconds").eq("workout_day_id",d.id).order("sort_order");ds.push({id:d.id,day_name:d.day_name,exercises:(ex??[]).map(x=>({id:x.id,catalog_id:x.exercise_id,name:x.exercise_name,sets:x.sets,reps:x.reps,rest_seconds:x.rest_seconds}))});}loaded.push({...p,workout_days:ds});}
