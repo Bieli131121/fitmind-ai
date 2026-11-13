@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -19,8 +19,13 @@ export default function RedefinirSenha() {
 
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const params = new URLSearchParams(window.location.search);
-    const recoveryHash = hash.get("type") === "recovery";
+
+    const hashType = hash.get("type");
+    const recoveryFlag = params.get("recovery") === "1";
     const code = params.get("code");
+    const tokenHash = params.get("token_hash");
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
 
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
       if (active && event === "PASSWORD_RECOVERY") {
@@ -31,29 +36,66 @@ export default function RedefinirSenha() {
 
     async function verify() {
       try {
-        let validRecovery = recoveryHash;
+        let validRecovery = false;
 
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (tokenHash) {
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "recovery",
+          });
+
           if (error) throw error;
-          validRecovery = true;
-          window.history.replaceState({}, "", "/redefinir-senha");
+          validRecovery = !!data.session;
+        } else if (code) {
+          const { data, error } =
+            await supabase.auth.exchangeCodeForSession(code);
+
+          if (error) throw error;
+          validRecovery = !!data.session;
+        } else if (
+          accessToken &&
+          refreshToken &&
+          (hashType === "recovery" || recoveryFlag)
+        ) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) throw error;
+          validRecovery = !!data.session;
         }
 
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        if (!validRecovery) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+
+          validRecovery =
+            !!data.session && (hashType === "recovery" || recoveryFlag);
+        }
 
         if (!active) return;
 
-        if (validRecovery && data.session) {
+        if (validRecovery) {
           setVerified(true);
-        } else if (!validRecovery) {
-          setMessage("Acesse esta pÃ¡gina pelo link de recuperaÃ§Ã£o enviado ao seu e-mail.");
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
         } else {
-          setMessage("Link invÃ¡lido ou expirado. Solicite uma nova recuperaÃ§Ã£o.");
+          setMessage(
+            "Link invÃ¡lido ou expirado. Solicite uma nova recuperaÃ§Ã£o."
+          );
         }
-      } catch {
-        if (active) setMessage("Link invÃ¡lido ou expirado. Solicite uma nova recuperaÃ§Ã£o.");
+      } catch (error) {
+        console.error("Erro ao validar recuperaÃ§Ã£o:", error);
+
+        if (active) {
+          setMessage(
+            "NÃ£o foi possÃ­vel validar o link. Solicite uma nova recuperaÃ§Ã£o."
+          );
+        }
       } finally {
         if (active) setChecking(false);
       }
@@ -75,25 +117,34 @@ export default function RedefinirSenha() {
       setMessage("Sua autorizaÃ§Ã£o de recuperaÃ§Ã£o nÃ£o foi validada.");
       return;
     }
+
     if (password.length < 8) {
       setMessage("A senha precisa ter pelo menos 8 caracteres.");
       return;
     }
+
     if (password !== confirm) {
       setMessage("As senhas nÃ£o coincidem.");
       return;
     }
 
     setBusy(true);
+
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password });
+
       if (error) throw error;
 
       await supabase.auth.signOut();
       setDone(true);
-    } catch {
-      setMessage("NÃ£o foi possÃ­vel atualizar a senha. Solicite um novo link e tente novamente.");
+    } catch (error) {
+      console.error("Erro ao atualizar senha:", error);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "NÃ£o foi possÃ­vel atualizar a senha. Solicite um novo link."
+      );
     } finally {
       setBusy(false);
     }
@@ -102,32 +153,57 @@ export default function RedefinirSenha() {
   return (
     <main className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <Link className="brand" href="/">FITMIND <span>AI.</span></Link>
+        <Link className="brand" href="/">
+          FITMIND <span>AI.</span>
+        </Link>
+
         <p className="eyebrow">SEGURANÃ‡A DA CONTA</p>
         <h1>Redefinir senha.</h1>
+
         {checking ? (
           <p className="muted small">Validando seu link de seguranÃ§a...</p>
         ) : done ? (
           <>
-            <p className="muted small">Senha atualizada com sucesso. Entre novamente com sua nova senha.</p>
+            <p className="muted small">
+              Senha atualizada com sucesso. Entre novamente com sua nova senha.
+            </p>
             <Link href="/login">Ir para o login</Link>
           </>
         ) : !verified ? (
           <>
-            <p className="error">{message || "Link de recuperaÃ§Ã£o nÃ£o autorizado."}</p>
+            <p className="error">
+              {message || "Link de recuperaÃ§Ã£o nÃ£o autorizado."}
+            </p>
             <Link href="/esqueci-senha">Solicitar novo link</Link>
           </>
         ) : (
           <>
-            <label>Nova senha
-              <input type="password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} />
+            <label>
+              Nova senha
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </label>
-            <label>Confirmar nova senha
-              <input type="password" required minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} />
+
+            <label>
+              Confirmar nova senha
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
             </label>
+
             <button className="primary full" disabled={busy}>
               {busy ? "Salvando..." : "Alterar senha"}
             </button>
+
             {message && <p className="error">{message}</p>}
           </>
         )}
