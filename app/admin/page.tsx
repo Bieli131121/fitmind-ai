@@ -9,7 +9,7 @@ export default async function AdminPage(){
   supabase.from("profiles").select("id,full_name,account_status,created_at").order("created_at",{ascending:false}).limit(100),
   supabase.from("plans").select("id,code,name,price_cents,currency,is_active,is_configured").order("price_cents"),
   supabase.from("payments").select("id,user_id,amount_cents,currency,status,created_at").order("created_at",{ascending:false}).limit(50),
-  supabase.from("subscriptions").select("id",{count:"exact",head:true}).in("plan",["premium","premium_monthly","premium_yearly"]).eq("status","active")
+  supabase.from("subscriptions").select("id",{count:"exact",head:true}).in("plan",["premium","premium_monthly","premium_yearly"]).eq("status","active").gt("current_period_end",new Date().toISOString())
  ]);
  const total=(payments??[]).filter((p)=>p.status==="approved").reduce((n,p)=>n+p.amount_cents,0);
  return <main className="app-shell"><section className="main-area" style={{maxWidth:1150,margin:"0 auto",width:"100%"}}><header className="topbar"><div><span className="eyebrow">FITMIND AI · CONTROLE</span><h1>Painel administrativo</h1></div><Link className="secondary" href="/">Voltar ao app</Link></header>

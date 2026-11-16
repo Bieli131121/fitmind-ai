@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import CheckoutButton from "@/components/checkout-button";
+import SubscriptionActions from "@/components/subscription-actions";
+import { hasPaidAccess, checkoutEnabled as billingCheckoutEnabled, paymentConfigured } from "@/lib/billing/mercadopago";
 import styles from "./financeiro.module.css";
 
 const formatMoney = (cents: number, currency = "BRL") =>
@@ -47,7 +49,7 @@ export default async function FinanceiroPage() {
     await Promise.all([
       supabase
         .from("subscriptions")
-        .select("plan,status,current_period_end,cancel_at_period_end")
+        .select("plan,status,current_period_end,cancel_at_period_end,provider_subscription_id")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -70,10 +72,10 @@ export default async function FinanceiroPage() {
   // A página só apresenta Premium ativo se o servidor já registrou a
   // confirmação da assinatura. O checkout permanece bloqueado por padrão.
   const premiumPlan = premiumCodes.includes(sub?.plan ?? "");
-  const isPremium = premiumPlan && sub?.status === "active";
+  const isPremium = hasPaidAccess(sub);
   const isPending =
-    premiumPlan && ["pending", "authorized"].includes(sub?.status ?? "");
-  const checkoutEnabled = process.env.FITMIND_CHECKOUT_ENABLED === "true";
+    premiumPlan && ["pending", "creating", "authorized"].includes(sub?.status ?? "");
+  const checkoutEnabled = billingCheckoutEnabled() && paymentConfigured();
 
   const currentPlanName = isPremium
     ? sub?.plan === "premium_yearly"
@@ -149,6 +151,11 @@ export default async function FinanceiroPage() {
             )}
           </div>
         </section>
+
+        <SubscriptionActions
+          hasSubscription={Boolean(sub?.provider_subscription_id)}
+          cancelable={Boolean(sub?.provider_subscription_id && !sub?.cancel_at_period_end)}
+        />
 
         {isPremium && sub?.cancel_at_period_end && (
           <p className={styles.inlineNotice}>
@@ -325,9 +332,9 @@ export default async function FinanceiroPage() {
           <div className={styles.historyFootnote}>
             <ShieldCheck size={17} aria-hidden="true" />
             <p>
-              A cobrança recorrente e o cancelamento dependem da integração
-              validada com o provedor de pagamento. O FitMind AI não armazena
-              o número completo do cartão nem o CVV.
+              A assinatura recorrente é administrada pelo Mercado Pago.
+              Você pode consultar o status ou cancelar futuras cobranças acima.
+              O FitMind AI não armazena número completo de cartão nem CVV.
             </p>
           </div>
         </section>

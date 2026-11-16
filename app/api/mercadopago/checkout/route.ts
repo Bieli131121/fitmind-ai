@@ -1,193 +1,133 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  billingAdmin, checkoutEnabled, expectedAmount, hasPaidAccess,
+  mpApi, paymentConfigured, planId, type PlanCode,
+} from "@/lib/billing/mercadopago";
 
 export const runtime = "nodejs";
 
-const PLAN_IDS = {
-  premium_monthly: "5f123e4e9e4645e881dd66a2f911d4d4",
-  premium_yearly: "09694d3aea0241d288ece1c2f2c4cb96",
-} as const;
-
-type PlanCode = keyof typeof PLAN_IDS;
-
 export async function POST(request: NextRequest) {
-  // Impede contratações reais enquanto o webhook e a validação de
-  // pagamentos não tiverem sido concluídos, mesmo por chamadas diretas.
-  if (process.env.FITMIND_CHECKOUT_ENABLED !== "true") {
-    return NextResponse.json(
-      { error: "A contratação Premium ainda está em preparação." },
-      { status: 503 }
-    );
+  if (!checkoutEnabled() || !paymentConfigured()) {
+    return NextResponse.json({ error: "Assinaturas ainda não habilitadas." }, { status: 503 });
   }
+  const supabase = await createClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user?.email) return NextResponse.json({ error: "Faça login para assinar." }, { status: 401 });
 
+  const payload: unknown = await request.json().catch(() => null);
+  const code = payload && typeof payload === "object" && "plan" in payload ? payload.plan : null;
+  if (code !== "premium_monthly" && code !== "premium_yearly") {
+    return NextResponse.json({ error: "Plano inválido." }, { status: 400 });
+  }
+  const plan = code as PlanCode;
+  const admin = billingAdmin();
+  let reserved = false;
+  let rowId = "";
+  let createdRemoteId = "";
+  let requestedRemoteCreation = false;
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Faça login para assinar." },
-        { status: 401 }
-      );
+    const siteUrl = new URL(process.env.FITMIND_SITE_URL!);
+    if (siteUrl.protocol !== "https:" && process.env.NODE_ENV === "production") {
+      throw new Error("FITMIND_SITE_URL deve usar HTTPS");
+    }
+    const [{ data: dbPlan, error: planError }, { data: existing, error: subError }] = await Promise.all([
+      admin.from("plans").select("id,price_cents,currency,is_configured,is_active").eq("code", plan).maybeSingle(),
+      admin.from("subscriptions")
+        .select("id,plan,status,current_period_end,provider_subscription_id,cancel_at_period_end")
+        .eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (planError || subError || !dbPlan || !existing) throw new Error("Não foi possível validar a conta e o plano");
+    if (!dbPlan.is_active || !dbPlan.is_configured || dbPlan.currency !== "BRL" ||
+      dbPlan.price_cents !== expectedAmount(plan) * 100) {
+      return NextResponse.json({ error: "Preço do plano não corresponde ao valor anunciado." }, { status: 409 });
+    }
+    if (hasPaidAccess(existing) || ["pending", "creating", "authorized"].includes(existing.status) ||
+        (Boolean(existing.provider_subscription_id) &&
+          !existing.cancel_at_period_end && existing.status !== "canceled")) {
+      return NextResponse.json({ error: "Você já possui assinatura ou solicitação em andamento. Atualize o status ou cancele a anterior." }, { status: 409 });
     }
 
-    const body: unknown = await request.json().catch(() => null);
-    const planCode =
-      body && typeof body === "object" && "plan" in body
-        ? body.plan
-        : null;
-
-    if (planCode !== "premium_monthly" && planCode !== "premium_yearly") {
-      return NextResponse.json({ error: "Plano inválido." }, { status: 400 });
+    const mpPlan = await mpApi<{
+      status?: string;
+      auto_recurring?: { currency_id?: string; transaction_amount?: number | string; frequency?: number; frequency_type?: string };
+    }>(`/preapproval_plan/${planId(plan)}`);
+    const freq = mpPlan.auto_recurring;
+    const correctFrequency = plan === "premium_monthly"
+      ? freq?.frequency === 1 && freq?.frequency_type === "months"
+      : (freq?.frequency === 12 && freq?.frequency_type === "months") ||
+        (freq?.frequency === 1 && freq?.frequency_type === "years");
+    if (mpPlan.status !== "active" || !correctFrequency || freq?.currency_id !== "BRL" ||
+      Number(freq?.transaction_amount) !== expectedAmount(plan)) {
+      return NextResponse.json({ error: "O valor ou a recorrência do Mercado Pago não confere." }, { status: 409 });
     }
 
-    const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    if (!token || token === "[SENSITIVE]") {
-      return NextResponse.json(
-        { error: "Mercado Pago não configurado." },
-        { status: 503 }
-      );
-    }
+    // Reserva atomicamente a assinatura. Duas requisições simultâneas
+    // não podem iniciar duas compras para a mesma conta.
+    const { data: locked, error: lockError } = await admin.from("subscriptions").update({
+      status: "creating", plan, plan_id: dbPlan.id,
+      provider: "mercado_pago", provider_status: "creating",
+      provider_subscription_id: null, cancel_at_period_end: false,
+      current_period_end: null, updated_at: new Date().toISOString(),
+    }).eq("id", existing.id).eq("status", existing.status)
+      .eq("plan", existing.plan).select("id").maybeSingle();
+    if (lockError) throw lockError;
+    if (!locked) return NextResponse.json({ error: "Outra contratação está em andamento." }, { status: 409 });
+    reserved = true;
+    rowId = existing.id;
 
-    const [{ data: dbPlan, error: planError }, { data: existing, error: subError }] =
-      await Promise.all([
-        supabase
-          .from("plans")
-          .select("code,price_cents,currency,is_active,is_configured")
-          .eq("code", planCode)
-          .maybeSingle(),
-        supabase
-          .from("subscriptions")
-          .select("plan,status")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
-
-    if (planError || subError) {
-      return NextResponse.json(
-        { error: "Não foi possível validar a assinatura." },
-        { status: 503 }
-      );
-    }
-
-    const expectedPrice = planCode === "premium_monthly" ? 1500 : 15000;
-    if (
-      !dbPlan?.is_active ||
-      !dbPlan?.is_configured ||
-      dbPlan.currency !== "BRL" ||
-      dbPlan.price_cents !== expectedPrice
-    ) {
-      return NextResponse.json(
-        { error: "Plano indisponível ou com preço divergente." },
-        { status: 409 }
-      );
-    }
-
-    if (
-      existing &&
-      ["premium", "premium_monthly", "premium_yearly"].includes(existing.plan) &&
-      ["pending", "authorized", "active"].includes(existing.status ?? "")
-    ) {
-      return NextResponse.json(
-        { error: "Já existe uma assinatura Premium ativa ou em andamento." },
-        { status: 409 }
-      );
-    }
-
-    const planId = PLAN_IDS[planCode as PlanCode];
-
-    // O plano no Mercado Pago também precisa ter preço, moeda,
-    // periodicidade e status conferidos antes de permitir cobranças reais.
-    const mpPlanResponse = await fetch(
-      `https://api.mercadopago.com/preapproval_plan/${planId}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
-    );
-    if (!mpPlanResponse.ok) {
-      return NextResponse.json(
-        { error: "Não foi possível verificar o plano no Mercado Pago." },
-        { status: 502 }
-      );
-    }
-    const mpPlan = await mpPlanResponse.json();
-    const recurrence = mpPlan?.auto_recurring;
-    const validPeriod =
-      planCode === "premium_monthly"
-        ? recurrence?.frequency === 1 && recurrence?.frequency_type === "months"
-        : (recurrence?.frequency === 12 && recurrence?.frequency_type === "months") ||
-          (recurrence?.frequency === 1 && recurrence?.frequency_type === "years");
-
-    if (
-      mpPlan?.status !== "active" ||
-      recurrence?.currency_id !== "BRL" ||
-      Number(recurrence?.transaction_amount) !== expectedPrice / 100 ||
-      !validPeriod
-    ) {
-      return NextResponse.json(
-        { error: "O plano do Mercado Pago não corresponde ao valor anunciado." },
-        { status: 409 }
-      );
-    }
-
-    const response = await fetch("https://api.mercadopago.com/preapproval", {
+    requestedRemoteCreation = true;
+    const created = await mpApi<{ id?: string; init_point?: string }>("/preapproval", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": crypto.randomUUID(),
-      },
+      headers: { "X-Idempotency-Key": crypto.randomUUID() },
       body: JSON.stringify({
-        preapproval_plan_id: planId,
-        reason:
-          planCode === "premium_monthly"
-            ? "FitMind AI Premium Mensal"
-            : "FitMind AI Premium Anual",
+        preapproval_plan_id: planId(plan),
+        reason: `FitMind AI ${plan === "premium_monthly" ? "Premium Mensal" : "Premium Anual"}`,
         external_reference: user.id,
         payer_email: user.email,
-        back_url: "https://fitmind-ai-alpha.vercel.app/financeiro",
+        back_url: new URL("/financeiro?mp_return=1", siteUrl).toString(),
         status: "pending",
       }),
-      cache: "no-store",
     });
-
-    if (!response.ok) {
-      console.error("Mercado Pago checkout HTTP:", response.status);
-      return NextResponse.json(
-        { error: "Não foi possível iniciar a assinatura." },
-        { status: 502 }
-      );
-    }
-
-    const result = await response.json();
-    if (typeof result.init_point !== "string") {
-      return NextResponse.json(
-        { error: "Link de assinatura indisponível." },
-        { status: 502 }
-      );
-    }
-    try {
-      const link = new URL(result.init_point);
-      const domain = link.hostname.toLowerCase();
-      const trusted = ["mercadopago.com", "mercadopago.com.br"].some(
-        (allowed) => domain === allowed || domain.endsWith(`.${allowed}`)
-      );
-      if (link.protocol !== "https:" || !trusted) throw new Error("Invalid URL");
-    } catch {
-      return NextResponse.json(
-        { error: "Link de assinatura inválido." },
-        { status: 502 }
-      );
-    }
-    return NextResponse.json({ checkout_url: result.init_point });
-  } catch (error) {
-    console.error("Erro no checkout:", error);
-    return NextResponse.json(
-      { error: "Erro interno ao iniciar assinatura." },
-      { status: 500 }
+    if (created.id) createdRemoteId = created.id;
+    if (!created.id || !created.init_point) throw new Error("Mercado Pago não forneceu checkout");
+    const url = new URL(created.init_point);
+    const trusted = ["mercadopago.com", "mercadopago.com.br"].some(
+      (domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)
     );
+    if (url.protocol !== "https:" || !trusted) throw new Error("URL de pagamento inválida");
+    const { error: saveError } = await admin.from("subscriptions").update({
+      provider_subscription_id: created.id,
+      status: "pending", provider_status: "pending",
+      updated_at: new Date().toISOString(),
+    }).eq("id", rowId).eq("status", "creating");
+    if (saveError) throw saveError;
+    reserved = false;
+    return NextResponse.json({ checkout_url: created.init_point });
+  } catch (error) {
+    console.error("Erro ao criar assinatura", error);
+    return NextResponse.json({ error: "Não foi possível iniciar a assinatura. Tente novamente ou contate o suporte." }, { status: 502 });
+  } finally {
+    if (reserved && rowId) {
+      // Se o MP criou a assinatura, cancela antes de liberar nova tentativa.
+      // Uma falha de rede após enviar POST pode ter criado a assinatura no MP.
+      // Não libera uma segunda cobrança sem saber o resultado remoto.
+      let canceledRemote = !requestedRemoteCreation;
+      if (createdRemoteId) {
+        try {
+          await mpApi(`/preapproval/${encodeURIComponent(createdRemoteId)}`, {
+            method: "PUT", body: JSON.stringify({ status: "canceled" }),
+          });
+          canceledRemote = true;
+        } catch (err) {
+          console.error("Falha ao cancelar assinatura remota órfã; exige revisão manual", err);
+        }
+      }
+      if (canceledRemote) await admin.from("subscriptions").update({
+        plan: "free", status: "active", plan_id: null,
+        provider_subscription_id: null, provider_status: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", rowId).eq("status", "creating");
+    }
   }
 }

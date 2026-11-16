@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { hasPaidAccess } from "@/lib/billing/mercadopago";
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Faça login para gerar sua sugestão alimentar." }, { status: 401 });
+    const { data: subscription, error: subError } = await supabase.from("subscriptions")
+      .select("plan,status,current_period_end").eq("user_id", user.id).maybeSingle();
+    if (subError) return NextResponse.json({ error: "Não foi possível verificar o plano." }, { status: 503 });
+    if (!hasPaidAccess(subscription)) return NextResponse.json({ error: "A geração de dieta com IA é exclusiva do Premium. Confira os planos na página Financeiro." }, { status: 403 });
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "A IA ainda não está configurada. Adicione OPENAI_API_KEY nas variáveis de ambiente da Vercel e no .env.local." }, { status: 503 });
     const body = await request.json();

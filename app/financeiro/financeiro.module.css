@@ -342,3 +342,8 @@
 @media (prefers-reduced-motion: reduce) {
   .backLink { transition: none; }
 }
+
+/* Ações de assinatura também se ajustam à largura do celular. */
+.accountActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 15px 0; }
+.accountActions > p { flex-basis: 100%; }
+@media (max-width: 680px) { .accountActions { flex-direction: column; align-items: stretch; } .accountActions button { width: 100%; min-height: 44px; } }
