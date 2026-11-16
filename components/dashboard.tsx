@@ -33,7 +33,36 @@ export default function Dashboard(){
  sb.from("exercises").select("id,name,muscle_group,instructions,equipment,difficulty").order("name")
  ]);
  if(!live)return;setCatalog((rawCatalog??[]) as CatalogExercise[]);setIsAdmin(role?.role==="admin");if(profile){setWeight(profile.weight_kg==null?"":String(profile.weight_kg));setHeight(profile.height_cm==null?"":String(profile.height_cm));setAge(profile.age==null?"":String(profile.age));if(profile.goal)setGoal(profile.goal);}
- const loaded:Plan[]=[];for(const p of rawPlans??[]){const {data:days}=await sb.from("workout_days").select("id,day_name,sort_order").eq("plan_id",p.id).order("sort_order");const ds:Day[]=[];for(const d of days??[]){const {data:ex}=await sb.from("workout_exercises").select("id,exercise_id,exercise_name,sets,reps,rest_seconds").eq("workout_day_id",d.id).order("sort_order");ds.push({id:d.id,day_name:d.day_name,exercises:(ex??[]).map(x=>({id:x.id,catalog_id:x.exercise_id,name:x.exercise_name,sets:x.sets,reps:x.reps,rest_seconds:x.rest_seconds}))});}loaded.push({...p,workout_days:ds});}
+ // Evita consultas sequenciais (N+1): busca todos os dias e exercícios em apenas 2 consultas.
+ const planIds=(rawPlans??[]).map(p=>p.id);
+ const {data:allDays,error:daysError}=planIds.length
+  ? await sb.from("workout_days")
+    .select("id,plan_id,day_name,sort_order")
+    .in("plan_id",planIds)
+    .order("sort_order")
+  : {data:[],error:null};
+ if(daysError)throw daysError;
+ const dayIds=(allDays??[]).map(d=>d.id);
+ const {data:allExercises,error:exercisesError}=dayIds.length
+  ? await sb.from("workout_exercises")
+    .select("id,workout_day_id,exercise_id,exercise_name,sets,reps,rest_seconds,sort_order")
+    .in("workout_day_id",dayIds)
+    .order("sort_order")
+  : {data:[],error:null};
+ if(exercisesError)throw exercisesError;
+ const exercisesByDay=new Map<string,Exercise[]>();
+ for(const x of allExercises??[]){
+  const values=exercisesByDay.get(x.workout_day_id)??[];
+  values.push({id:x.id,catalog_id:x.exercise_id,name:x.exercise_name,sets:x.sets,reps:x.reps,rest_seconds:x.rest_seconds});
+  exercisesByDay.set(x.workout_day_id,values);
+ }
+ const daysByPlan=new Map<string,Day[]>();
+ for(const d of allDays??[]){
+  const values=daysByPlan.get(d.plan_id)??[];
+  values.push({id:d.id,day_name:d.day_name,exercises:exercisesByDay.get(d.id)??[]});
+  daysByPlan.set(d.plan_id,values);
+ }
+ const loaded:Plan[]=(rawPlans??[]).map(p=>({...p,workout_days:daysByPlan.get(p.id)??[]}));
  setPlans(loaded);setActivePlan(loaded[0]??null);setEvents(rawEvents??[]);if(rawDiets?.[0]?.content)setDiet(rawDiets[0].content as Diet);
  }catch(e){if(live)setNotice(e instanceof Error?e.message:"Erro ao carregar dados.");}finally{if(live){setLoading(false);}}})();return()=>{live=false}},[]);
  async function logout(){const sb=createClient();await sb.auth.signOut();window.location.href="/login";}
