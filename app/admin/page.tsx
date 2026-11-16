@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 const money=(c:number,cur="BRL")=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:cur}).format(c/100);
 export default async function AdminPage(){
- const supabase=await createClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user) redirect("/login");
- const {data:role}=await supabase.from("user_roles").select("role").eq("user_id",user.id).maybeSingle(); if(role?.role!=="admin") redirect("/");
+ const supabase=await createClient(); const {data:auth,error:authError}=await supabase.auth.getClaims(); const userId=auth?.claims?.sub; if(authError||!userId) redirect("/login");
+ const {data:role}=await supabase.from("user_roles").select("role").eq("user_id",userId).maybeSingle(); if(role?.role!=="admin") redirect("/");
  const [{data:users},{data:plans},{data:payments},{count:premium}]=await Promise.all([
   supabase.from("profiles").select("id,full_name,account_status,created_at").order("created_at",{ascending:false}).limit(100),
   supabase.from("plans").select("id,code,name,price_cents,currency,is_active,is_configured").order("price_cents"),

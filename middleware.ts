@@ -16,7 +16,9 @@ export async function middleware(request: NextRequest) {
       }
     }
   });
-  await supabase.auth.getUser();
+  // Verifica o JWT localmente quando o projeto usa chaves assimétricas.
+  // Mantém atualização segura da sessão e evita consulta extra de /auth/v1/user.
+  await supabase.auth.getClaims();
   return response;
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"] };
