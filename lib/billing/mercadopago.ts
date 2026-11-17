@@ -65,8 +65,8 @@ export function paymentConfigured() {
   return Boolean(
     process.env.MERCADOPAGO_ACCESS_TOKEN &&
     process.env.SUPABASE_SERVICE_ROLE_KEY &&
-    process.env.MERCADOPAGO_WEBHOOK_TOKEN &&
-    process.env.MERCADOPAGO_WEBHOOK_TOKEN.length >= 32 &&
+    process.env.MERCADOPAGO_WEBHOOK_SECRET &&
+    process.env.MERCADOPAGO_WEBHOOK_SECRET.length >= 16 &&
     process.env.FITMIND_SITE_URL
   );
 }
