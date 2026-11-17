@@ -33,14 +33,33 @@ export async function POST(request: NextRequest) {
   }
 
   const notification: Notification = await request.json().catch(() => ({}));
-  const topic = notification.type || notification.topic || params.get("type") || "";
-  const resourceId = String(notification.data?.id ?? signedId ?? "");
-  // O recurso processado precisa ser EXATAMENTE o recurso coberto pelo HMAC.
-  if (!signedId || signedId.toLowerCase() !== resourceId.toLowerCase() ||
-      !/^[a-zA-Z0-9_-]{1,100}$/.test(resourceId)) {
+  // O simulador e integrações legadas podem chamar o mesmo evento de preapproval
+  // ou subscription_preapproval. Aceitamos APENAS aliases conhecidos.
+  const normalizeTopic = (value: string) => {
+    if (value === "preapproval") return "subscription_preapproval";
+    if (value === "authorized_payment") return "subscription_authorized_payment";
+    return value;
+  };
+  const bodyTopic = normalizeTopic(notification.type || notification.topic || "");
+  const queryTopic = normalizeTopic(params.get("type") || "");
+  const topic = bodyTopic || queryTopic;
+  const bodyId = notification.data?.id == null ? null : String(notification.data.id);
+  // O ID assinado na URL é a identidade autorizada. O corpo não pode substituí-lo.
+  const resourceId = signedId ?? "";
+  if (!signedId || !/^[a-zA-Z0-9_-]{1,100}$/.test(resourceId) ||
+      (bodyId !== null && bodyId.toLowerCase() !== resourceId.toLowerCase())) {
+    // Registra apenas a causa: nunca registrar IDs, assinatura, URL ou segredos.
+    console.warn("[FitMind webhook] ID_DIVERGENTE", {
+      urlTemId: Boolean(signedId), corpoTemId: bodyId !== null,
+      idMesmoValor: Boolean(bodyId && signedId && bodyId.toLowerCase() === signedId.toLowerCase()),
+    });
     return NextResponse.json({ error: "Identificador de recurso inválido" }, { status: 400 });
   }
-  if (params.get("type") && notification.type && params.get("type") !== notification.type) {
+  if (bodyTopic && queryTopic && bodyTopic !== queryTopic) {
+    console.warn("[FitMind webhook] TIPO_DIVERGENTE", {
+      tipoUrl: queryTopic,
+      tipoCorpo: bodyTopic,
+    });
     return NextResponse.json({ error: "Tipo de notificação divergente" }, { status: 400 });
   }
 
