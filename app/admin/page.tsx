@@ -1,20 +1,227 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  CreditCard,
+  Crown,
+  LayoutDashboard,
+  ShieldCheck,
+  UsersRound,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-const money=(c:number,cur="BRL")=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:cur}).format(c/100);
-export default async function AdminPage(){
- const supabase=await createClient(); const {data:auth,error:authError}=await supabase.auth.getClaims(); const userId=auth?.claims?.sub; if(authError||!userId) redirect("/login");
- const {data:role}=await supabase.from("user_roles").select("role").eq("user_id",userId).maybeSingle(); if(role?.role!=="admin") redirect("/");
- const [{data:users},{data:plans},{data:payments},{count:premium}]=await Promise.all([
-  supabase.from("profiles").select("id,full_name,account_status,created_at").order("created_at",{ascending:false}).limit(100),
-  supabase.from("plans").select("id,code,name,price_cents,currency,is_active,is_configured").order("price_cents"),
-  supabase.from("payments").select("id,user_id,amount_cents,currency,status,created_at").order("created_at",{ascending:false}).limit(50),
-  supabase.from("subscriptions").select("id",{count:"exact",head:true}).in("plan",["premium","premium_monthly","premium_yearly"]).eq("status","active").gt("current_period_end",new Date().toISOString())
- ]);
- const total=(payments??[]).filter((p)=>p.status==="approved").reduce((n,p)=>n+p.amount_cents,0);
- return <main className="app-shell"><section className="main-area" style={{maxWidth:1150,margin:"0 auto",width:"100%"}}><header className="topbar"><div><span className="eyebrow">FITMIND AI · CONTROLE</span><h1>Painel administrativo</h1></div><Link className="secondary" href="/">Voltar ao app</Link></header>
- <div className="stats-grid"><article className="stat-card"><span>Usuários listados</span><strong>{users?.length??0}</strong><small>Últimos 100 cadastros</small></article><article className="stat-card"><span>Assinantes Premium ativos</span><strong>{premium??0}</strong><small>Assinaturas atuais</small></article><article className="stat-card"><span>Pagamentos aprovados</span><strong>{money(total)}</strong><small>Soma dos 50 registros recentes</small></article></div>
- <article className="surface full-panel"><span className="eyebrow">GESTÃO DE USUÁRIOS</span><h2>Contas cadastradas</h2>{users?.map((u)=><div className="exercise-row" key={u.id}><div><strong>{u.full_name||"Sem nome cadastrado"}</strong><small>{u.id} · {new Date(u.created_at).toLocaleDateString("pt-BR")}</small></div><span className="pill">{u.account_status}</span></div>)}</article>
- <article className="surface full-panel"><span className="eyebrow">PLANOS E PREÇOS</span><h2>Configuração comercial</h2><p className="muted">Os preços dos planos estão cadastrados. A contratação Premium está em preparação. A liberação depende da confirmação segura das cobranças.</p>{plans?.map((p)=><div className="exercise-row" key={p.id}><div><strong>{p.name}</strong><small>{p.code} · {p.is_active?"Ativo":"Inativo"}</small></div><strong>{p.is_configured?money(p.price_cents,p.currency):"Preço não definido"}</strong></div>)}</article>
- <article className="surface full-panel"><span className="eyebrow">FINANCEIRO</span><h2>Transações recentes</h2>{payments?.length?payments.map((p)=><div className="exercise-row" key={p.id}><div><strong>{p.status}</strong><small>{new Date(p.created_at).toLocaleString("pt-BR")} · Conta {p.user_id.slice(0,8)}…</small></div><strong>{money(p.amount_cents,p.currency)}</strong></div>):<p className="muted">Nenhuma transação registrada.</p>}</article></section></main>;
+import styles from "./admin.module.css";
+
+const money = (cents: number, currency = "BRL") =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(cents / 100);
+
+const date = (value: string) =>
+  new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "America/Sao_Paulo" }).format(new Date(value));
+
+const dateTime = (value: string) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
+  }).format(new Date(value));
+
+const statusLabels: Record<string, string> = {
+  active: "Ativa",
+  suspended: "Suspensa",
+  blocked: "Bloqueada",
+  pending: "Pendente",
+  approved: "Aprovado",
+  rejected: "Rejeitado",
+  refunded: "Reembolsado",
+  cancelled: "Cancelado",
+  charged_back: "Contestado",
+};
+
+const shortId = (id: string) => `${id.slice(0, 8)}…`;
+
+export default async function AdminPage() {
+  const supabase = await createClient();
+  const { data: auth, error: authError } = await supabase.auth.getClaims();
+  const userId = auth?.claims?.sub;
+  if (authError || !userId) redirect("/login");
+
+  const { data: role, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (roleError || role?.role !== "admin") redirect("/");
+
+  const [userResult, planResult, paymentResult, premiumResult] = await Promise.all([
+    supabase.from("profiles").select("id,full_name,account_status,created_at").order("created_at", { ascending: false }).limit(100),
+    supabase.from("plans").select("id,code,name,price_cents,currency,is_active,is_configured").order("price_cents"),
+    supabase.from("payments").select("id,user_id,amount_cents,currency,status,created_at").order("created_at", { ascending: false }).limit(50),
+    supabase.from("subscriptions").select("id", { count: "exact", head: true })
+      .in("plan", ["premium", "premium_monthly", "premium_yearly"])
+      .eq("status", "active")
+      .gt("current_period_end", new Date().toISOString()),
+  ]);
+
+  const users = userResult.data ?? [];
+  const plans = planResult.data ?? [];
+  const payments = paymentResult.data ?? [];
+  const total = payments.filter((payment) => payment.status === "approved")
+    .reduce((sum, payment) => sum + payment.amount_cents, 0);
+  const hasReadErrors = Boolean(userResult.error || planResult.error || paymentResult.error || premiumResult.error);
+
+  return (
+    <main className={styles.adminPage}>
+      <div className={styles.ambientGlow} aria-hidden="true" />
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <Link href="/" className={styles.logo} aria-label="FitMind AI — início">
+            <span className={styles.logoIcon}><LayoutDashboard size={20} strokeWidth={2.2} /></span>
+            <span>FitMind <span className={styles.logoAccent}>AI</span></span>
+          </Link>
+          <nav className={styles.nav} aria-label="Navegação administrativa">
+            <span className={styles.activeNav}>Administração</span>
+            <Link href="/financeiro" className={styles.navLink}>Financeiro</Link>
+            <Link href="/" className={styles.exitLink}><ArrowLeft size={15} /> <span>Voltar ao app</span></Link>
+          </nav>
+        </header>
+
+        <section className={styles.intro} aria-labelledby="admin-title">
+          <div className={styles.introText}>
+            <div className={styles.kicker}><ShieldCheck size={14} /> ÁREA RESTRITA · FITMIND AI</div>
+            <h1 id="admin-title">Painel <span>administrativo</span></h1>
+            <p>Acompanhe os alunos, as assinaturas e os registros financeiros em um só lugar.</p>
+          </div>
+          <div className={styles.securityChip}><ShieldCheck size={16} /> Acesso de administrador</div>
+        </section>
+
+        {hasReadErrors && (
+          <div className={styles.warning} role="status">
+            Alguns dados não puderam ser carregados. Verifique as permissões de leitura no Supabase.
+          </div>
+        )}
+
+        <section className={styles.summary} aria-label="Indicadores gerais">
+          <article className={styles.metricCard}>
+            <div className={styles.metricTop}><span>Usuários listados</span><span className={styles.metricIcon}><UsersRound size={20} /></span></div>
+            <strong>{userResult.error ? "—" : users.length.toLocaleString("pt-BR")}</strong>
+            <small>Últimos 100 cadastros</small>
+          </article>
+          <article className={styles.metricCard}>
+            <div className={styles.metricTop}><span>Assinantes Premium</span><span className={styles.metricIcon}><Crown size={20} /></span></div>
+            <strong>{premiumResult.error ? "—" : (premiumResult.count ?? 0).toLocaleString("pt-BR")}</strong>
+            <small>Assinaturas ativas e vigentes</small>
+          </article>
+          <article className={styles.metricCard}>
+            <div className={styles.metricTop}><span>Pagamentos aprovados</span><span className={styles.metricIcon}><CircleDollarSign size={20} /></span></div>
+            <strong className={styles.currencyMetric}>{paymentResult.error ? "—" : money(total)}</strong>
+            <small>Soma dos 50 registros recentes</small>
+          </article>
+        </section>
+
+        <div className={styles.contentGrid}>
+          <section className={styles.panel} aria-labelledby="users-heading">
+            <div className={styles.panelHead}>
+              <div>
+                <span className={styles.sectionTag}><UsersRound size={14} /> ALUNOS</span>
+                <h2 id="users-heading">Contas cadastradas</h2>
+                <p>Cadastros mais recentes da plataforma</p>
+              </div>
+              <span className={styles.counter}>{users.length} exibidos</span>
+            </div>
+            <div className={styles.usersList}>
+              {users.length === 0 ? (
+                <p className={styles.emptyState}>Nenhuma conta disponível para exibição.</p>
+              ) : users.map((user) => {
+                const name = user.full_name?.trim() || "Usuário sem nome";
+                const accountStatus = user.account_status || "active";
+                return (
+                  <div className={styles.userRow} key={user.id}>
+                    <span className={styles.avatar} aria-hidden="true">{name.charAt(0).toLocaleUpperCase("pt-BR")}</span>
+                    <div className={styles.userInfo}>
+                      <strong title={name}>{name}</strong>
+                      <span title={user.id}>ID {shortId(user.id)} <span aria-hidden="true">·</span> {date(user.created_at)}</span>
+                    </div>
+                    <span className={`${styles.status} ${accountStatus === "active" ? styles.statusSuccess : accountStatus === "suspended" ? styles.statusPending : styles.statusDanger}`}>
+                      {statusLabels[accountStatus] ?? accountStatus}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className={styles.panel} aria-labelledby="plans-heading">
+            <div className={styles.panelHead}>
+              <div>
+                <span className={styles.sectionTag}><Crown size={14} /> ASSINATURAS</span>
+                <h2 id="plans-heading">Planos e preços</h2>
+                <p>Configuração comercial atual</p>
+              </div>
+              <Link href="/financeiro" className={styles.iconLink} aria-label="Abrir financeiro"><ArrowUpRight size={19} /></Link>
+            </div>
+            <div className={styles.plansList}>
+              {plans.length === 0 ? (
+                <p className={styles.emptyState}>Nenhum plano disponível para exibição.</p>
+              ) : plans.map((plan) => (
+                <div className={styles.planRow} key={plan.id}>
+                  <span className={`${styles.planSymbol} ${plan.code !== "free" ? styles.premiumSymbol : ""}`} aria-hidden="true">
+                    {plan.code === "free" ? <CheckCircle2 size={19} /> : <Crown size={19} />}
+                  </span>
+                  <div className={styles.planInfo}>
+                    <strong>{plan.name}</strong>
+                    <span>{plan.code === "premium_monthly" ? "Cobrança mensal" : plan.code === "premium_yearly" ? "Cobrança anual" : "Acesso gratuito"}</span>
+                  </div>
+                  <div className={styles.planAmount}>
+                    <strong>{plan.is_configured ? money(plan.price_cents, plan.currency) : "Não definido"}</strong>
+                    <span className={plan.is_active && plan.is_configured ? styles.planActive : styles.planInactive}>
+                      {plan.is_active ? (plan.is_configured ? "Ativo" : "Não configurado") : "Inativo"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className={styles.planFooter}><ShieldCheck size={16} /> O acesso Premium depende da confirmação da cobrança pelo servidor.</div>
+          </section>
+        </div>
+
+        <section className={`${styles.panel} ${styles.paymentsPanel}`} aria-labelledby="payments-heading">
+          <div className={styles.panelHead}>
+            <div>
+              <span className={styles.sectionTag}><CreditCard size={14} /> TRANSAÇÕES</span>
+              <h2 id="payments-heading">Pagamentos recentes</h2>
+              <p>Até 50 movimentações registradas</p>
+            </div>
+            <Link href="/financeiro" className={styles.viewAll}>Abrir financeiro <ArrowUpRight size={15} /></Link>
+          </div>
+          {payments.length === 0 ? (
+            <div className={styles.emptyPayments}>
+              <span><CalendarDays size={23} /></span>
+              <strong>Nenhuma transação registrada</strong>
+              <p>Os pagamentos aparecerão aqui após serem registrados no sistema.</p>
+            </div>
+          ) : (
+            <div className={styles.tableScroll}>
+              <table className={styles.table}>
+                <thead><tr><th>Conta</th><th>Data</th><th>Status</th><th>Valor</th></tr></thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td><span className={styles.accountCode}>#{shortId(payment.user_id)}</span></td>
+                      <td>{dateTime(payment.created_at)}</td>
+                      <td><span className={`${styles.status} ${payment.status === "approved" ? styles.statusSuccess : payment.status === "pending" ? styles.statusPending : styles.statusDanger}`}>
+                        {statusLabels[payment.status] ?? payment.status}
+                      </span></td>
+                      <td className={styles.amountCell}>{money(payment.amount_cents, payment.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        <footer className={styles.footer}>FitMind AI <span>·</span> Painel administrativo <span>·</span> Acesso restrito</footer>
+      </div>
+    </main>
+  );
 }

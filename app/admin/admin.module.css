@@ -1,0 +1,71 @@
+.adminPage{--admin-border:#342d44;--admin-muted:#a9a0b9;min-height:100vh;min-width:0;isolation:isolate;position:relative;background:#100f18;color:#f7f3ff;padding:0 24px 32px;overflow-x:clip}
+.ambientGlow{position:absolute;z-index:-1;top:0;left:0;right:0;height:480px;pointer-events:none;background:radial-gradient(ellipse 750px 320px at 60% -100px,#59318a55,transparent 75%)}
+.container{max-width:1230px;margin:0 auto;min-width:0}
+.header{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:85px;border-bottom:1px solid var(--admin-border)}
+.logo{color:#f8f5ff;display:inline-flex;align-items:center;gap:10px;white-space:nowrap;font-size:20px;font-weight:800;letter-spacing:-.8px}
+.logoIcon{height:36px;width:36px;border-radius:11px;display:grid;place-items:center;color:#dbcaff;background:linear-gradient(145deg,#7041aa,#382452);border:1px solid #7652a0}
+.logoAccent{color:#a983f9}.nav{display:flex;align-items:center;gap:10px;min-width:0}
+.navLink,.activeNav,.exitLink{font-size:12px;font-weight:700;padding:10px 14px;border-radius:10px;white-space:nowrap}
+.navLink{color:#b1a9bf}.navLink:hover{color:#fff;background:#282233}
+.activeNav{color:#d6b8ff;background:#302241;border:1px solid #53366e}
+.exitLink{display:inline-flex;align-items:center;gap:7px;background:#211b2d;border:1px solid var(--admin-border);color:#f0e8ff}
+.exitLink:hover,.iconLink:hover,.viewAll:hover{border-color:#8b5cf6;color:#fff}
+.intro{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:37px 0 30px}
+.introText{min-width:0}.kicker{display:inline-flex;align-items:center;gap:8px;color:#b69acf;font-size:10px;font-weight:800;letter-spacing:1.5px}
+.intro h1{font-size:clamp(29px,4vw,42px);line-height:1.15;letter-spacing:-1.6px;margin:13px 0 9px;font-weight:800}
+.intro h1 span{color:#b395fa}.intro p{color:var(--admin-muted);font-size:13px;line-height:1.6;margin:0}
+.securityChip{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:#1f2622;border:1px solid #395446;color:#abd9b9;font-size:11px;white-space:nowrap}
+.warning{border:1px solid #815e36;background:#44301955;color:#ffdea0;border-radius:12px;padding:13px 16px;margin-bottom:20px;font-size:12px}
+.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:19px}
+.metricCard{min-width:0;border:1px solid var(--admin-border);background:linear-gradient(152deg,#272135,#1c1927 80%);border-radius:18px;padding:22px;position:relative;box-shadow:0 8px 34px #00000016}
+.metricTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;color:#c2b8cc;font-size:12px;font-weight:700}
+.metricIcon{height:43px;width:43px;border-radius:13px;flex:0 0 auto;display:grid;place-items:center;color:#c5a2ff;background:#403053;border:1px solid #5b4174}
+.metricCard>strong{font-size:clamp(29px,3vw,38px);display:block;line-height:1.2;letter-spacing:-1.5px;overflow-wrap:anywhere;margin:7px 0 5px;font-weight:800}
+.metricCard>.currencyMetric{font-size:clamp(25px,2.7vw,35px)}
+.metricCard small{font-size:11px;color:#9389a3}
+.contentGrid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px;align-items:stretch}
+.panel{background:#1b1925;border:1px solid var(--admin-border);border-radius:19px;min-width:0;overflow:hidden;box-shadow:0 8px 32px #00000010}
+.panelHead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:23px 23px 19px;min-width:0}
+.panelHead>div{min-width:0}.sectionTag{display:inline-flex;align-items:center;gap:7px;font-size:10px;letter-spacing:1.2px;color:#af8ff3;font-weight:800}
+.panelHead h2{font-size:20px;margin:9px 0 4px;letter-spacing:-.7px;font-weight:800}
+.panelHead p{font-size:11px;color:#938ca3;margin:0;line-height:1.5}
+.counter{white-space:nowrap;padding:7px 10px;border-radius:8px;border:1px solid #403349;color:#bcb0cb;font-size:11px}
+.usersList{padding:0 23px 12px;max-height:460px;overflow-y:auto;scrollbar-color:#544267 transparent;scrollbar-width:thin}
+.userRow{display:flex;align-items:center;min-width:0;gap:12px;padding:13px 0;border-top:1px solid #322c3e}
+.avatar{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;flex:0 0 auto;color:#e9dcff;background:#382949;font-size:15px;font-weight:800}
+.userInfo{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+.userInfo strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.userInfo>span{color:#9d94ac;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-size:10px;font-weight:750;border-radius:100px;padding:6px 10px;border:1px solid transparent}
+.statusSuccess{background:#1f3a2b;color:#a4e1bd;border-color:#355c43}
+.statusPending{background:#44351f;color:#e7c989;border-color:#6b5032}
+.statusDanger{background:#41242b;color:#f8b2c1;border-color:#71404b}
+.iconLink{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;color:#c7b3e9;border:1px solid #514063}
+.plansList{padding:0 23px}
+.planRow{display:flex;align-items:center;gap:12px;border-top:1px solid #322c3e;padding:19px 0;min-width:0}
+.planSymbol{width:41px;height:41px;flex:0 0 auto;border-radius:12px;display:grid;place-items:center;color:#a7e4c3;background:#264537}
+.premiumSymbol{background:#403057;color:#d1afff}
+.planInfo{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}
+.planInfo strong{font-size:12px}.planInfo span{font-size:11px;color:#9b93ab}
+.planAmount{display:flex;flex-direction:column;gap:5px;align-items:flex-end;text-align:right;min-width:0}
+.planAmount strong{font-size:14px;white-space:nowrap}
+.planActive,.planInactive{font-size:10px}.planActive{color:#8fd8af}.planInactive{color:#e1af76}
+.planFooter{display:flex;align-items:flex-start;gap:8px;background:#24202f;color:#a79bb6;padding:15px 23px;border-top:1px solid #322c3e;font-size:11px;line-height:1.6}
+.planFooter svg{color:#b194e8;flex:0 0 auto;margin-top:1px}
+.paymentsPanel{margin-top:18px}
+.viewAll{display:inline-flex;align-items:center;gap:6px;font-weight:700;border-radius:9px;border:1px solid var(--admin-border);padding:9px 12px;font-size:11px;color:#cebcf5;white-space:nowrap}
+.tableScroll{overflow-x:auto;width:100%;scrollbar-color:#514265 transparent;scrollbar-width:thin}
+.table{width:100%;min-width:580px;border-collapse:collapse;table-layout:fixed;font-size:12px}
+.table th{text-align:left;color:#9489a6;background:#211d2c;font-size:10px;letter-spacing:.6px;font-weight:800;padding:15px 23px}
+.table td{padding:14px 23px;border-top:1px solid #322c3e;color:#d7d0e4}
+.table th:last-child,.table td:last-child{text-align:right}
+.table tbody tr:hover{background:#24202f}
+.accountCode{font-weight:800;color:#ded3f4}.amountCell{font-weight:800;color:#f8f2ff !important;white-space:nowrap}
+.emptyState{margin:0;padding:25px 4px;color:#a99db7;font-size:12px;border-top:1px solid #322c3e}
+.emptyPayments{display:flex;align-items:center;flex-direction:column;text-align:center;padding:33px 20px 44px;border-top:1px solid #322c3e}
+.emptyPayments>span{width:54px;height:54px;border-radius:15px;background:#322640;color:#cbb3ef;display:grid;place-items:center;margin-bottom:14px}
+.emptyPayments strong{font-size:13px}.emptyPayments p{font-size:11px;line-height:1.5;color:#958aa8;margin:7px 0 0}
+.footer{text-align:center;font-size:11px;color:#777084;padding-top:32px}.footer span{padding:0 7px;color:#a68acb}
+@media(max-width:940px){.contentGrid{grid-template-columns:minmax(0,1fr)}.usersList{max-height:420px}.plansList{padding-bottom:4px}}
+@media(max-width:680px){.adminPage{padding:0 14px 28px}.header{min-height:72px;gap:10px}.logo{font-size:17px}.logoIcon{width:32px;height:32px}.nav{gap:5px}.navLink{display:none}.activeNav{font-size:10px;padding:8px}.exitLink{padding:8px;font-size:10px}.intro{display:block;padding:27px 0 22px}.intro h1{font-size:30px}.intro p{font-size:12px}.securityChip{margin-top:15px}.summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metricCard{padding:15px;border-radius:14px}.metricTop{font-size:10px}.metricIcon{width:33px;height:33px;border-radius:10px}.metricIcon svg{width:17px;height:17px}.metricCard strong{font-size:29px;margin-top:14px}.metricCard small{font-size:10px;line-height:1.4}.metricCard:last-child{grid-column:1/-1}.metricCard:last-child strong{font-size:30px}.panelHead{padding:20px 15px 16px}.panelHead h2{font-size:18px}.usersList,.plansList{padding-left:15px;padding-right:15px}.userRow{gap:9px}.avatar{width:34px;height:34px}.userInfo>span{font-size:9px}.status{font-size:9px;padding:5px 8px}.counter{font-size:10px}.planFooter{padding:14px 15px}.table th,.table td{padding:13px 15px}.footer{line-height:1.7}}
+@media(max-width:370px){.activeNav{display:none}.metricTop{align-items:center}.metricIcon{width:28px;height:28px}.metricCard{padding:12px}.intro h1{font-size:27px}.planRow{gap:7px}.planSymbol{width:34px;height:34px}.planAmount strong{font-size:12px}}
