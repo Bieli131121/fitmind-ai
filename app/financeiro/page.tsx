@@ -49,7 +49,7 @@ export default async function FinanceiroPage() {
     await Promise.all([
       supabase
         .from("subscriptions")
-        .select("plan,status,current_period_end,cancel_at_period_end,provider_subscription_id")
+        .select("plan,status,current_period_end,cancel_at_period_end,provider_subscription_id,provider")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -69,10 +69,11 @@ export default async function FinanceiroPage() {
         .limit(20),
     ]);
 
-  // A página só apresenta Premium ativo se o servidor já registrou a
-  // confirmação da assinatura. O checkout permanece bloqueado por padrão.
+  // Premium exige um período vigente: pode vir de pagamento confirmado
+  // pelo servidor ou de liberação manual feita pelo administrador.
   const premiumPlan = premiumCodes.includes(sub?.plan ?? "");
   const isPremium = hasPaidAccess(sub);
+  const manualPremium = isPremium && sub?.provider === "admin";
   const isPending =
     premiumPlan && ["pending", "creating", "authorized"].includes(sub?.status ?? "");
   const checkoutEnabled = billingCheckoutEnabled() && paymentConfigured();
@@ -116,8 +117,10 @@ export default async function FinanceiroPage() {
               <span className={styles.eyebrow}>SEU PLANO ATUAL</span>
               <h2 id="current-plan-title">{currentPlanName}</h2>
               <p>
-                {isPremium
-                  ? "Sua assinatura Premium está ativa."
+                {manualPremium
+                  ? "Acesso Premium liberado pela administração, sem cobrança recorrente."
+                  : isPremium
+                    ? "Sua assinatura Premium está ativa."
                   : isPending
                     ? "Sua solicitação está aguardando confirmação do pagamento."
                     : "Aproveite os recursos gratuitos e conheça nossos planos Premium."}

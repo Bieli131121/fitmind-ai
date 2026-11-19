@@ -13,6 +13,8 @@ import {
   UsersRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { billingAdmin } from "@/lib/billing/mercadopago";
+import AdminPremiumManager from "@/components/admin-premium-manager";
 import styles from "./admin.module.css";
 
 const money = (cents: number, currency = "BRL") =>
@@ -53,14 +55,15 @@ export default async function AdminPage() {
     .maybeSingle();
   if (roleError || role?.role !== "admin") redirect("/");
 
-  const [userResult, planResult, paymentResult, premiumResult] = await Promise.all([
+  // Leitura administrativa de assinaturas: as políticas RLS permitem que
+  // usuários comuns consultem apenas a própria assinatura.
+  let serviceClient: ReturnType<typeof billingAdmin> | null = null;
+  try { serviceClient = billingAdmin(); } catch { /* Aviso exibido abaixo. */ }
+
+  const [userResult, planResult, paymentResult] = await Promise.all([
     supabase.from("profiles").select("id,full_name,account_status,created_at").order("created_at", { ascending: false }).limit(100),
     supabase.from("plans").select("id,code,name,price_cents,currency,is_active,is_configured").order("price_cents"),
     supabase.from("payments").select("id,user_id,amount_cents,currency,status,created_at").order("created_at", { ascending: false }).limit(50),
-    supabase.from("subscriptions").select("id", { count: "exact", head: true })
-      .in("plan", ["premium", "premium_monthly", "premium_yearly"])
-      .eq("status", "active")
-      .gt("current_period_end", new Date().toISOString()),
   ]);
 
   const users = userResult.data ?? [];
@@ -68,7 +71,23 @@ export default async function AdminPage() {
   const payments = paymentResult.data ?? [];
   const total = payments.filter((payment) => payment.status === "approved")
     .reduce((sum, payment) => sum + payment.amount_cents, 0);
-  const hasReadErrors = Boolean(userResult.error || planResult.error || paymentResult.error || premiumResult.error);
+
+  const [premiumResult, subscriptionsResult, identityResult] = serviceClient
+    ? await Promise.all([
+        serviceClient.from("subscriptions").select("id", { count: "exact", head: true })
+          .in("plan", ["premium", "premium_monthly", "premium_yearly"])
+          .eq("status", "active").gt("current_period_end", new Date().toISOString()),
+        users.length ? serviceClient.from("subscriptions")
+          .select("user_id,plan,status,provider,current_period_end")
+          .in("user_id", users.map((user) => user.id)) : Promise.resolve({ data: [], error: null }),
+        serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      ])
+    : [null, null, null];
+
+  const subscriptionByUser = new Map((subscriptionsResult?.data ?? []).map((sub) => [sub.user_id, sub]));
+  const emailById = new Map((identityResult?.data?.users ?? []).map((u) => [u.id, u.email ?? null]));
+  const hasReadErrors = Boolean(userResult.error || planResult.error || paymentResult.error ||
+    !serviceClient || premiumResult?.error || subscriptionsResult?.error || identityResult?.error);
 
   return (
     <main className={styles.adminPage}>
@@ -109,7 +128,7 @@ export default async function AdminPage() {
           </article>
           <article className={styles.metricCard}>
             <div className={styles.metricTop}><span>Assinantes Premium</span><span className={styles.metricIcon}><Crown size={20} /></span></div>
-            <strong>{premiumResult.error ? "—" : (premiumResult.count ?? 0).toLocaleString("pt-BR")}</strong>
+            <strong>{premiumResult?.error || !premiumResult ? "—" : (premiumResult.count ?? 0).toLocaleString("pt-BR")}</strong>
             <small>Assinaturas ativas e vigentes</small>
           </article>
           <article className={styles.metricCard}>
@@ -118,6 +137,19 @@ export default async function AdminPage() {
             <small>Soma dos 50 registros recentes</small>
           </article>
         </section>
+
+        <AdminPremiumManager users={users.map((user) => {
+          const subscription = subscriptionByUser.get(user.id);
+          return {
+            id: user.id,
+            name: user.full_name?.trim() || "Usuário sem nome",
+            email: emailById.get(user.id) ?? null,
+            plan: subscription?.plan ?? null,
+            status: subscription?.status ?? null,
+            provider: subscription?.provider ?? null,
+            currentPeriodEnd: subscription?.current_period_end ?? null,
+          };
+        })} />
 
         <div className={styles.contentGrid}>
           <section className={styles.panel} aria-labelledby="users-heading">
@@ -181,7 +213,7 @@ export default async function AdminPage() {
                 </div>
               ))}
             </div>
-            <div className={styles.planFooter}><ShieldCheck size={16} /> O acesso Premium depende da confirmação da cobrança pelo servidor.</div>
+            <div className={styles.planFooter}><ShieldCheck size={16} /> Premium também pode ser concedido manualmente pelo administrador, sem gerar cobrança ou pagamento.</div>
           </section>
         </div>
 
