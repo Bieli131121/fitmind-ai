@@ -41,7 +41,7 @@ export async function generateWithGemini(
   );
 
   if (!response.ok) {
-    console.error("Gemini API error status", response.status);
+    console.error("Gemini API error status", response.status, (await response.text()).slice(0, 1500));
     throw new Error(`GEMINI_API_ERROR_${response.status}`);
   }
 
