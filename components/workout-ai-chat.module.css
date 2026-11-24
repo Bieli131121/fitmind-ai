@@ -1,0 +1,38 @@
+.container{min-width:0}
+.heading{display:flex;align-items:center;gap:15px;margin-bottom:18px}
+.heading h2{font-size:20px;margin:5px 0 4px}
+.heading p{font-size:12px;color:#aaa2ba;line-height:1.55;margin:0}
+.botIcon{width:48px;height:48px;flex:0 0 48px;border-radius:14px;display:grid;place-items:center;color:#d3c0ff;background:#392850}
+.chat{border:1px solid #40374f;background:#15131e;max-height:560px;min-height:360px;overflow-y:auto;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin}
+.note{display:flex;align-items:center;gap:7px;font-size:12px;color:#b7afc6}
+.welcome{max-width:620px;margin:auto;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;color:#c9b3ff;padding:25px 6px}
+.welcome strong{font-size:18px}.welcome p{font-size:13px;line-height:1.6;color:#b6acc8}
+.suggestions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:13px}
+.suggestions button{text-align:left;line-height:1.4}
+.messageRow{display:flex;gap:10px;align-items:flex-start;max-width:95%}
+.mine{margin-left:auto;flex-direction:row-reverse}
+.smallAvatar{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border-radius:10px;background:#31253e;color:#cdb4ff}
+.mine .smallAvatar{background:#283047;color:#c8d1ff}
+.bubble{border-radius:14px;background:#252034;border:1px solid #41344f;padding:12px 14px;min-width:0;max-width:100%}
+.mine .bubble{background:#3a2a56;border-color:#62498a}
+.bubbleText{white-space:pre-wrap;font-size:13px;line-height:1.65;margin:0;overflow-wrap:anywhere}
+.plan{margin-top:15px;padding:12px 0 0;border-top:1px solid #514261;display:flex;flex-direction:column;gap:10px}
+.planHeading{display:flex;align-items:center;gap:9px;color:#d9c8ff}
+.planHeading div{display:flex;flex-direction:column;gap:3px}.planHeading strong{font-size:13px}.planHeading span{font-size:11px;color:#aca2bf}
+.day{border:1px solid #514362;border-radius:10px;overflow:hidden;background:#1d1a29}
+.day summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding:10px 12px;font-size:12px;font-weight:700}
+.day summary span{font-size:10px;color:#bba7d7;font-weight:400}
+.exercise{display:flex;flex-direction:column;gap:3px;border-top:1px solid #363040;padding:9px 12px}
+.exercise strong{font-size:11px}.exercise span{font-size:10px;color:#ada4b9}
+.plan>button{justify-content:center}
+.hint{font-size:10px;color:#a9a0b6;margin:0;line-height:1.5}
+.waiting{display:flex;align-items:center;gap:8px;font-size:12px;color:#c7b9db}
+.spin{animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.composer{display:flex;align-items:stretch;gap:10px;margin-top:12px}
+.composer textarea{flex:1;min-width:0;resize:vertical;background:#15131e;color:#fff;border:1px solid #514363;border-radius:11px;padding:13px;font:inherit;font-size:13px;line-height:1.5;outline:none}
+.composer textarea:focus{border-color:#a78bfa}
+.composer button{align-self:stretch;min-width:90px;justify-content:center}
+.error{color:#ffb8b8;background:#422633;border:1px solid #814458;border-radius:8px;padding:10px 12px;font-size:12px}
+.footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#91899e;font-size:10px;margin:12px 0 0;line-height:1.5}
+@media(max-width:650px){.heading{align-items:flex-start}.heading h2{font-size:17px}.chat{padding:10px;min-height:370px;max-height:65vh}.messageRow{max-width:100%;gap:6px}.bubble{padding:10px 11px}.smallAvatar{width:23px;height:23px;flex-basis:23px}.composer{flex-direction:column}.composer button{align-self:flex-end;min-height:40px}}
